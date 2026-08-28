@@ -1,0 +1,31 @@
+{
+  "task_id": "t2",
+  "checklist": [
+    { "id": "c1", "text": "2026 지침 확인", "note": "경기도교육청 제2026-1183호", "done": true },
+    { "id": "c2", "text": "전년도 학교 운영계획 확인", "note": "한빛중 제2025-4417호", "done": true },
+    { "id": "c3", "text": "운영 일정·차시 검토", "note": "교육과정부 협의", "done": true },
+    { "id": "c4", "text": "강사·예산 확인", "note": "행정실 사전 협의", "done": false },
+    { "id": "c5", "text": "내부결재 기안", "note": "전년도 기안일 08.24", "done": false },
+    { "id": "c6", "text": "교직원·가정 안내", "note": "전년도 08.28 발송", "done": false },
+    { "id": "c7", "text": "교육지원청 제출", "note": "공식 마감 09.02", "done": false }
+  ],
+  "evidence_chain": [
+    { "level": "현재 공문", "title": "AI 교육주간 운영 협조 요청", "detail": "한빛교육지원청 제2026-9241호 · 2026.08.19", "source_type": "official" },
+    { "level": "관련 매뉴얼", "title": "2026 디지털 기반 교육혁신 운영지침", "detail": "경기도교육청 제2026-1183호 · 2026.03.04", "source_type": "official" },
+    { "level": "법적 근거", "title": "교육기본법 제23조의2 (정보화 교육)", "detail": "시행 2025.09.15", "source_type": "official" },
+    { "level": "우리학교 전년도 사례", "title": "2025 AI 교육주간 운영계획(내부결재)", "detail": "한빛중 제2025-4417호 · 2025.08.24", "source_type": "school_case" }
+  ],
+  "previous_timeline": [
+    { "date": "2025-08-21", "event": "교육지원청 공문 접수" },
+    { "date": "2025-08-24", "event": "운영계획 내부결재 기안" },
+    { "date": "2025-08-28", "event": "교직원 안내 및 가정통신문 발송" },
+    { "date": "2025-09-02", "event": "교육지원청 제출 (마감 당일)" },
+    { "date": "2025-09-30", "event": "운영 결과보고 제출" }
+  ],
+  "related_forms": [
+    { "id": "fm1", "title": "운영계획 내부결재 예시", "meta": "학교사례 · 2025학년도" },
+    { "id": "fm2", "title": "가정통신문 양식", "meta": "학교사례 · 2025학년도" },
+    { "id": "fm3", "title": "결과보고 서식", "meta": "학교사례 · 2025학년도" }
+  ],
+  "guideline_change_notice": "2026 지침에서 운영 기간이 5일에서 7일로 확대되었습니다. 전년도 계획서를 그대로 사용하면 기간이 맞지 않습니다."
+}

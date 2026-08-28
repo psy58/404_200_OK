@@ -1,0 +1,9 @@
+{
+  "items": [
+    { "id": "no1", "title": "2학기 학교정보공시 자료 확정 · 공식 마감 3일 전", "message": "2026.08.28 09:00 · 공식 마감", "kind": "due", "is_new": true, "related_task_id": "t1" },
+    { "id": "no2", "title": "2026 AI 교육주간 운영 · 권장 준비 시작일이 지났습니다", "message": "2026.08.27 08:30 · 준비 시작", "kind": "prep", "is_new": true, "related_task_id": "t2" },
+    { "id": "no3", "title": "새 관련 공문 · 디지털기기 관리 실태 점검 안내", "message": "2026.08.22 14:12 · 새 공문", "kind": "doc", "is_new": false, "related_task_id": "t3" },
+    { "id": "no4", "title": "근거 갱신 · 2026 디지털 기반 교육혁신 운영지침 3차 개정", "message": "2026.08.14 11:05 · 근거 갱신", "kind": "evidence_update", "is_new": false, "related_task_id": null },
+    { "id": "no5", "title": "분석 완료 · 전임자 문서 412건 중 408건 성공, 4건 검토 필요", "message": "2026.08.11 16:40 · 분석 완료", "kind": "analysis_complete", "is_new": false, "related_task_id": null }
+  ]
+}
