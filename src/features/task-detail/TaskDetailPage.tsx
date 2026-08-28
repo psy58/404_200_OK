@@ -12,6 +12,9 @@ import { DateRail } from "@/components/ui/DateRail";
 import { ChecklistSection } from "./ChecklistSection";
 import { EvidenceChain } from "./EvidenceChain";
 import { PreviousTimeline } from "./PreviousTimeline";
+import { CommunityPostCard } from "@/features/notes/CommunityPostCard";
+import { COMMUNITY_POSTS } from "@/features/notes/communityData";
+import { useCommunityLinks } from "@/features/notes/communityLinks";
 import { ChevronRightIcon, FileIcon } from "@/lib/icons";
 import { daysUntil, formatFull } from "@/lib/dates";
 
@@ -19,6 +22,7 @@ export function TaskDetailPage() {
   const { taskId = "" } = useParams();
   const { activeAssignmentId } = useAssignment();
   const { open } = useOverlay();
+  const linkedCommunityIds = useCommunityLinks();
 
   const tasksQuery = useQuery({
     queryKey: qk.tasks(activeAssignmentId ?? ""),
@@ -54,6 +58,7 @@ export function TaskDetailPage() {
 
   const detail = detailQuery.data;
   const taskNotes = (notesQuery.data ?? []).filter((n) => n.taskId === task.id);
+  const communityPosts = COMMUNITY_POSTS.filter((post) => post.taskId === task.id && linkedCommunityIds.includes(post.id));
 
   return (
     <div className="stack">
@@ -140,15 +145,18 @@ export function TaskDetailPage() {
               )}
             </section>
 
-            <section className="card card-pad">
+            <section className="card card-pad same-task-community">
               <div className="card-head">
-                <span className="lead"><h2 className="t-h2">경험 메모</h2></span>
-                <button className="btn btn-ghost btn-sm" onClick={() => open("note", task.id)}>추가</button>
+                <span className="lead"><span className="orange-dot">🍊</span><h2 className="t-h2">같은 업무 선생님들의 감</h2></span>
+                <button className="btn btn-ghost btn-sm" onClick={() => open("note", task.id)}>질문·감·자료 공유</button>
               </div>
-              {taskNotes.length === 0 ? (
-                <p className="t-cap">아직 이 업무의 경험 메모가 없습니다. 지금 알게 된 것을 한 줄 남겨 두세요.</p>
+              <p className="t-cap community-intro">동료 교사의 팁·자료·질문</p>
+              {communityPosts.length === 0 && taskNotes.length === 0 ? (
+                <p className="t-cap">아직 이 업무에 연결된 감이 없습니다. 가장 먼저 한 줄을 남겨 주세요.</p>
               ) : (
-                taskNotes.map((n) => (
+                <div className="same-task-feed">
+                  {communityPosts.slice(0, 3).map((post) => <CommunityPostCard post={post} compact taskContext key={post.id} />)}
+                  {taskNotes.map((n) => (
                   <div className="mini-note" key={n.id}>
                     <span style={{ display: "flex", gap: 7 }}>
                       <SourceTag type="experience" />
@@ -156,7 +164,8 @@ export function TaskDetailPage() {
                     <p>{n.body}</p>
                     <span className="mf">{n.authorDisplay} · {n.academicYear}학년도</span>
                   </div>
-                ))
+                  ))}
+                </div>
               )}
             </section>
           </div>

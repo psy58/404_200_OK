@@ -79,6 +79,7 @@ export function HomePage() {
           meta={urgent ? `가장 급한 업무 D-${daysUntil(urgent.officialDueDate)}` : "진행 중인 업무 없음"}
           linkLabel="목록 보기"
           to="/home"
+          scrollTarget="in-progress-tasks"
         />
         <KpiCard
           accent="#F59E0B"
@@ -87,6 +88,7 @@ export function HomePage() {
           meta="전년도 준비 시점 기준"
           linkLabel="목록 보기"
           to="/home"
+          scrollTarget="upcoming-tasks"
         />
         <KpiCard
           accent="#0B4171"
@@ -94,7 +96,8 @@ export function HomePage() {
           value={feedQuery.data?.length ?? 0}
           meta="업무에 자동 연결됨"
           linkLabel="목록 보기"
-          to="/docs"
+          to="/home"
+          scrollTarget="related-documents"
         />
         <KpiCard
           accent="#10B981"
@@ -109,7 +112,7 @@ export function HomePage() {
 
       <div className="grid-main">
         <div className="stack" style={{ gap: 22 }}>
-          <section className="card card-pad">
+          <section className="card card-pad scroll-target" id="in-progress-tasks">
             <span className="sec-tag">이번 달 · 8월</span>
             <div className="card-head">
               <span className="lead">
@@ -127,7 +130,7 @@ export function HomePage() {
             )}
           </section>
 
-          <section className="card card-pad">
+          <section className="card card-pad scroll-target" id="upcoming-tasks">
             <span className="sec-tag">다음 · 9~10월</span>
             <div className="card-head">
               <span className="lead">
@@ -189,7 +192,7 @@ export function HomePage() {
         </div>
 
         <aside className="col-side">
-          <section className="card card-pad">
+          <section className="card card-pad scroll-target" id="related-documents">
             <div className="card-head">
               <span className="lead">
                 <span className="dot-m" style={{ background: "var(--navy-700)" }} />

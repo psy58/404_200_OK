@@ -27,7 +27,7 @@ export function Topbar({ onToggleNav }: { onToggleNav: () => void }) {
         </button>
         <button className="who">
           <span className="ava">박</span>
-          <span>
+          <span className="who-copy">
             <span className="n">박새연</span>
             <span className="r">교사 · 과학정보부</span>
           </span>
