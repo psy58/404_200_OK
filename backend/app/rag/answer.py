@@ -35,7 +35,7 @@ USER_PROMPT = """담당 교사의 질문에 답하세요.
 
 질문
 {query}
-{workflow_context}
+{reference_frame}{workflow_context}
 진행 기록 (날짜순)
 ---
 {timeline}
@@ -128,14 +128,32 @@ def format_timeline(entries) -> str:
     return "\n".join(lines)
 
 
+def _reference_frame(today) -> str:
+    """"작년"이 언제인지 못 박는다.
+
+    문서가 전부 지난 학년도 것이라, 기준을 안 주면 모델이 문서의 연도를
+    올해로 착각하고 "작년 기록은 없다"고 답한다. 실제로 그랬다.
+    """
+    if today is None:
+        return ""
+    year = today.year if today.month >= 3 else today.year - 1
+    return (
+        f"\n오늘은 {today.isoformat()}, 지금은 {year}학년도다. "
+        f"질문의 '작년'은 {year - 1}학년도({year - 1}년 3월~{year}년 2월)를 뜻한다. "
+        f"진행 기록의 날짜가 그 시기라면 그것이 곧 작년 기록이다.\n"
+    )
+
+
 def build_prompt(
     query: str,
     hits: list[Hit],
     workflow: WorkflowContext | None,
     timeline=None,
+    today=None,
 ) -> str:
     return USER_PROMPT.format(
         query=query,
+        reference_frame=_reference_frame(today),
         workflow_context=workflow.render() if workflow else "",
         timeline=format_timeline(timeline or []),
         evidence=format_evidence(hits),
@@ -148,6 +166,7 @@ def write_message(
     hits: list[Hit],
     workflow: WorkflowContext | None = None,
     timeline=None,
+    today=None,
 ) -> str:
     """답변 문장 하나를 만든다.
 
@@ -160,7 +179,7 @@ def write_message(
     response = llm.invoke(
         [
             ("system", SYSTEM_PROMPT),
-            ("human", build_prompt(query, hits, workflow, timeline)),
+            ("human", build_prompt(query, hits, workflow, timeline, today)),
         ]
     )
     return (response.content or "").strip() or FALLBACK_MESSAGE

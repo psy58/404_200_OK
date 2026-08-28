@@ -203,27 +203,37 @@ class Searcher:
         document_candidates: int = DEFAULT_DOCUMENT_CANDIDATES,
         direction: str | None = None,
         doc_number: str | None = None,
+        document_ids: list[str] | None = None,
     ) -> list[Hit]:
         """질문과 가까운 조각을 관련도 내림차순으로 돌려준다.
 
         direction("drafted"/"received")이나 doc_number를 주면 그 범위에서만 찾는다.
+        document_ids 를 주면 **그 문서들 안에서만** 찾는다 — 담당자가 특정
+        업무를 보며 물을 때 다른 사업의 문서가 근거로 끼어들지 않게 한다.
         Summary Index가 비어 있으면 조각만으로 찾는다(요약 없이도 동작한다).
         """
         # 같은 사업이라도 문서마다 이름이 다르다. 용어집으로 다른 표기를 붙인다.
         expansion = glossary.expand(query)
-        matches = self.find_documents(
-            expansion.text, k=document_candidates, direction=direction, doc_number=doc_number
-        )
-        document_scores = {match.document_id: match.relevance for match in matches}
 
-        conditions = []
-        if document_scores:
-            conditions.append({"document_id": {"$in": list(document_scores)}})
+        if document_ids:
+            # 범위가 이미 문서로 정해져 있으면 1단계(요약으로 좁히기)는 필요 없다.
+            matches: list[DocumentMatch] = []
+            document_scores: dict[str, float] = {}
+            conditions: list[dict] = [{"document_id": {"$in": list(document_ids)}}]
         else:
-            if direction:
-                conditions.append({"direction": direction})
-            if doc_number:
-                conditions.append({"doc_number": doc_number})
+            matches = self.find_documents(
+                expansion.text, k=document_candidates, direction=direction, doc_number=doc_number
+            )
+            document_scores = {match.document_id: match.relevance for match in matches}
+
+            conditions = []
+            if document_scores:
+                conditions.append({"document_id": {"$in": list(document_scores)}})
+            else:
+                if direction:
+                    conditions.append({"direction": direction})
+                if doc_number:
+                    conditions.append({"doc_number": doc_number})
 
         results = self.chunks.similarity_search_with_relevance_scores(
             expansion.text, k=k * CANDIDATE_MULTIPLIER, filter=_filter(conditions)

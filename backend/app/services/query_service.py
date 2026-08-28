@@ -76,18 +76,8 @@ def _workflow_data(workflow_id: str | None, focus_step_id: str | None = None) ->
     }
 
 
-def _timeline(hits) -> list[TimelineEntry]:
-    """찾은 문서에서 출발해 같은 사업의 흐름을 시간순으로 만든다.
-
-    연결 그래프(relations.json)가 없으면 빈 목록이다. 답변 자체는 그대로 나간다.
-    """
-    from ..rag import doctype, timeline as timeline_module
-
-    try:
-        entries = timeline_module.build([hit.document_id for hit in hits])
-    except Exception as exc:
-        print(f"[query] 진행 흐름을 만들지 못했습니다: {exc}")
-        return []
+def _to_contract_timeline(entries) -> list[TimelineEntry]:
+    from ..rag import doctype
 
     return [
         TimelineEntry(
@@ -101,6 +91,47 @@ def _timeline(hits) -> list[TimelineEntry]:
         )
         for entry in entries
     ]
+
+
+def _timeline(hits) -> list[TimelineEntry]:
+    """찾은 문서에서 출발해 같은 사업의 흐름을 시간순으로 만든다.
+
+    연결 그래프(relations.json)가 없으면 빈 목록이다. 답변 자체는 그대로 나간다.
+    """
+    from ..rag import timeline as timeline_module
+
+    try:
+        entries = timeline_module.build([hit.document_id for hit in hits])
+    except Exception as exc:
+        print(f"[query] 진행 흐름을 만들지 못했습니다: {exc}")
+        return []
+    return _to_contract_timeline(entries)
+
+
+def _task_scope(workflow_id: str | None) -> tuple[list[str], list]:
+    """업무를 알고 묻는 질문이면 (그 사업의 문서 범위, 작년 처리 흐름).
+
+    화면의 업무 id(wf_/wf26_)일 때만 잡힌다. 흐름은 검색이 아니라 워크플로
+    기록에서 오므로 다른 사업 문서가 섞이지 않는다.
+    """
+    if not workflow_id:
+        return [], []
+    try:
+        from . import frontend_service
+
+        scope = frontend_service.task_document_ids(workflow_id)
+        flow = frontend_service.task_flow(workflow_id) if scope else []
+        return scope, flow
+    except Exception as exc:
+        print(f"[query] 업무 범위를 잡지 못했습니다: {exc}")
+        return [], []
+
+
+def _resolve_task_id(workflow_id: str | None) -> str | None:
+    """투영 업무 id(wf26_…)를 워크플로 기록 id(wf_…)로 되돌린다."""
+    if workflow_id and workflow_id.startswith("wf26_"):
+        return "wf_" + workflow_id.removeprefix("wf26_")
+    return workflow_id
 
 
 def _document_results(hits) -> list[DocumentResult]:
@@ -157,9 +188,25 @@ class RagQueryEngine:
     def answer(self, request: QueryRequest) -> QueryResponse:
         from ..rag import answer as answer_module
 
-        hits = self.searcher.search(request.query, k=MAX_DOCUMENTS)
+        # 특정 업무를 보며 묻는 질문이면 그 사업의 문서 안에서만 찾는다.
+        # 전체를 뒤지면 이름만 비슷한 다른 사업 문서가 근거로 끼어든다.
+        scope, flow = _task_scope(request.workflow_id)
+        if scope:
+            hits = self.searcher.search(
+                request.query, k=MAX_DOCUMENTS, document_ids=scope
+            )
+            if len(hits) < 2:
+                # 이 업무 문서에 답이 없다. 범위를 풀어 전체에서 찾되,
+                # 흐름은 그대로 이 업무의 작년 기록을 쓴다.
+                hits = self.searcher.search(request.query, k=MAX_DOCUMENTS)
+        else:
+            hits = self.searcher.search(request.query, k=MAX_DOCUMENTS)
+
+        request = request.model_copy(
+            update={"workflow_id": _resolve_task_id(request.workflow_id)}
+        )
         workflow_id, match = self.find_workflow(request)
-        timeline = _timeline(hits)
+        timeline = _to_contract_timeline(flow) if flow else _timeline(hits)
         data = QueryData(
             **_workflow_data(workflow_id, match.step_id if match else None),
             documents=_document_results(hits),
@@ -176,8 +223,11 @@ class RagQueryEngine:
             )
 
         try:
+            from . import frontend_service
+
             message = answer_module.write_message(
-                self.llm, request.query, hits, context, timeline
+                self.llm, request.query, hits, context, timeline,
+                today=frontend_service._today(),
             )
         except Exception as exc:
             # 문장을 못 만들어도 근거 문서는 돌려준다. 화면이 비지 않는다.

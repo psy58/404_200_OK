@@ -278,3 +278,103 @@ def test_entries_without_dates_are_still_shown() -> None:
         [TimelineEntry("d1", "제목", None, "계획", "drafted", "내부 진행")]
     )
     assert "날짜 미상" in text
+
+
+# --- 업무 범위 질의 -----------------------------------------------------------
+#
+# 특정 업무를 보며 물으면 그 사업의 문서 안에서만 찾아야 한다. 전체를 뒤지면
+# 이름만 비슷한 다른 사업 문서가 근거로 끼어든다(실제로 그랬다).
+
+
+class ScopeRecordingSearcher:
+    def __init__(self, hits_by_mode: dict) -> None:
+        self.hits_by_mode = hits_by_mode
+        self.calls: list[dict] = []
+
+    def search(self, query: str, k: int = 5, **kwargs):
+        self.calls.append(kwargs)
+        mode = "scoped" if kwargs.get("document_ids") else "global"
+        return self.hits_by_mode.get(mode, [])
+
+
+@pytest.fixture
+def scoped_setup(monkeypatch):
+    from app.rag.timeline import TimelineEntry
+    from app.services import frontend_service
+
+    monkeypatch.setattr(
+        frontend_service, "task_document_ids", lambda task_id: ["doc_a", "doc_att"]
+    )
+    monkeypatch.setattr(
+        frontend_service,
+        "task_flow",
+        lambda task_id: [
+            TimelineEntry("doc_a", "[공모·안내] 공모 접수", "2025-08-05", "공모안내", "received", "교육청 수신"),
+            TimelineEntry("doc_a", "[계획 수립] 운영 계획서", "2025-09-19", "계획수립", "drafted", "내부 진행"),
+        ],
+    )
+
+
+def test_asking_about_a_task_searches_only_its_documents(scoped_setup) -> None:
+    searcher = ScopeRecordingSearcher({"scoped": [make_hit(), make_hit(chunk_id="c2")]})
+    engine = RagQueryEngine(searcher, FakeListChatModel(responses=["안내"]))
+
+    engine.answer(QueryRequest(query="작년에 어떤 순서로?", workflow_id="wf_abc"))
+
+    assert searcher.calls[0]["document_ids"] == ["doc_a", "doc_att"]
+    assert len(searcher.calls) == 1  # 범위 안에서 충분하면 전체 검색은 없다
+
+
+def test_scoped_timeline_comes_from_the_workflow_record(scoped_setup) -> None:
+    searcher = ScopeRecordingSearcher({"scoped": [make_hit(), make_hit(chunk_id="c2")]})
+    engine = RagQueryEngine(searcher, FakeListChatModel(responses=["안내"]))
+
+    response = engine.answer(QueryRequest(query="순서", workflow_id="wf_abc"))
+
+    titles = [e.title for e in response.data.timeline]
+    assert titles == ["[공모·안내] 공모 접수", "[계획 수립] 운영 계획서"]
+
+
+def test_scope_falls_back_to_global_when_the_answer_is_elsewhere(scoped_setup) -> None:
+    """이 업무 문서에 답이 없으면 범위를 풀되, 흐름은 이 업무 것을 유지한다."""
+    searcher = ScopeRecordingSearcher(
+        {"scoped": [], "global": [make_hit(), make_hit(chunk_id="c2")]}
+    )
+    engine = RagQueryEngine(searcher, FakeListChatModel(responses=["안내"]))
+
+    response = engine.answer(QueryRequest(query="다른 질문", workflow_id="wf_abc"))
+
+    assert len(searcher.calls) == 2
+    assert searcher.calls[1].get("document_ids") is None
+    assert response.data.timeline  # 흐름은 여전히 업무 기록에서
+
+
+def test_projected_task_id_resolves_to_its_base_workflow(monkeypatch) -> None:
+    from app.services import frontend_service, query_service
+
+    captured = {}
+    monkeypatch.setattr(
+        frontend_service, "task_document_ids",
+        lambda task_id: captured.setdefault("scope_id", task_id) and [],
+    )
+    engine = RagQueryEngine(FakeSearcher([make_hit()]), FakeListChatModel(responses=["안내"]))
+    engine.answer(QueryRequest(query="질문", workflow_id="wf26_abc123"))
+
+    assert captured["scope_id"] == "wf26_abc123"  # 범위는 화면 id 그대로 푼다
+    assert query_service._resolve_task_id("wf26_abc123") == "wf_abc123"
+
+
+def test_prompt_anchors_what_last_year_means() -> None:
+    """기준을 안 주면 모델이 문서의 연도를 올해로 착각한다. 실제로 그랬다."""
+    from datetime import date
+
+    prompt = answer_module.build_prompt(
+        "작년에 어떤 순서로?", [make_hit()], None, [], today=date(2026, 8, 29)
+    )
+    assert "2026학년도" in prompt
+    assert "'작년'은 2025학년도" in prompt
+
+    january = answer_module.build_prompt(
+        "질문", [make_hit()], None, [], today=date(2026, 1, 15)
+    )
+    assert "2025학년도" in january  # 1월은 아직 2025학년도다

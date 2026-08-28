@@ -553,3 +553,69 @@ def notifications() -> dto.NotificationsResponse:
             )
         )
     return dto.NotificationsResponse(items=items)
+
+
+# --- 업무 도우미(질의)가 쓰는 범위 ---------------------------------------------
+
+
+def _resolve_workflow(task_id: str) -> dict | None:
+    """화면의 업무 id(wf_/wf26_)를 워크플로 기록으로 푼다."""
+    store = _store.ensure()
+    lookup = (
+        "wf_" + task_id.removeprefix(PROJECTED_PREFIX)
+        if task_id.startswith(PROJECTED_PREFIX)
+        else task_id
+    )
+    return next((w for w in store.workflows if w["workflow_id"] == lookup), None)
+
+
+def task_document_ids(task_id: str) -> list[str]:
+    """이 업무(올해 + 작년 사업)에 속한 문서 전부. 첨부까지 포함한다.
+
+    업무 도우미가 이 목록으로 검색 범위를 좁힌다. 계획서 알맹이는 대개
+    첨부에 있으므로 본문만 넣으면 정작 내용이 검색되지 않는다.
+    """
+    store = _store.ensure()
+    workflow = _resolve_workflow(task_id)
+    if workflow is None:
+        return []
+
+    siblings = _series(store).get(workflow["business_name"], {})
+    ids: list[str] = []
+    for sibling in siblings.values():
+        for step in sibling["steps"]:
+            for document_id in step.get("document_ids", []):
+                ids.append(document_id)
+                ids.extend(store.attachments.get(document_id, []))
+
+    seen: set[str] = set()
+    return [i for i in ids if not (i in seen or seen.add(i))]
+
+
+def task_flow(task_id: str):
+    """이 업무의 작년 처리 순서. 단계 이름을 붙여 날짜순으로.
+
+    업무 도우미의 답변 재료다 — "작년에는 어떤 순서로 진행했나"에 검색이
+    아니라 기록으로 답하게 한다.
+    """
+    from ..rag import timeline as timeline_module
+
+    store = _store.ensure()
+    workflow = _resolve_workflow(task_id)
+    if workflow is None:
+        return []
+
+    entries = []
+    for document_id, node, step_name in _workflow_documents(workflow, store):
+        entries.append(
+            timeline_module.TimelineEntry(
+                document_id=document_id,
+                title=f"[{step_name}] " + (node.get("title") or ""),
+                date=_event_date(node),
+                kind=step_name,
+                direction=node.get("direction"),
+                audience=timeline_module.audience_of(node),
+                doc_number=node.get("doc_number"),
+            )
+        )
+    return entries
