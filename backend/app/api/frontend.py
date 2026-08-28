@@ -20,11 +20,11 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import APIRouter, UploadFile
+from fastapi import APIRouter, BackgroundTasks, UploadFile
 
 from .. import settings
 from ..models import frontend as dto
-from ..services import frontend_service, state_store
+from ..services import frontend_service, state_store, upload_ingest
 
 router = APIRouter()
 alias = APIRouter()  # /mocks/backend/*.json
@@ -169,10 +169,7 @@ def mark_notifications_read(
 
 
 UPLOAD_DIR = settings.DATA_DIR / "uploads"
-UPLOAD_NOTE = (
-    "서버에 저장했습니다. 분석·색인은 인제스트 파이프라인"
-    "(scripts/convert_to_markdown.py)을 돌릴 때 반영됩니다."
-)
+UPLOAD_NOTE = upload_ingest.STATUS_NOTE["received"]
 
 
 def _safe_filename(name: str) -> str:
@@ -184,9 +181,9 @@ def _safe_filename(name: str) -> str:
 @router.post(
     "/uploads",
     response_model=dto.UploadRecord,
-    summary="문서 파일 업로드 — 저장까지. 분석은 인제스트가 한다",
+    summary="문서 업로드 — markitdown 변환 → LangChain 분할 → (키 있으면) 색인",
 )
-async def upload_file(file: UploadFile) -> dto.UploadRecord:
+async def upload_file(file: UploadFile, background: BackgroundTasks) -> dto.UploadRecord:
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     filename = _safe_filename(file.filename or "")
     content = await file.read()
@@ -197,15 +194,25 @@ async def upload_file(file: UploadFile) -> dto.UploadRecord:
             "size": len(content),
             "uploaded_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             "status": "received",
+            "note": UPLOAD_NOTE,
         }
     )
     # 같은 이름이 또 와도 덮어쓰지 않도록 id를 앞에 붙인다
-    (UPLOAD_DIR / f"{record['id']}_{filename}").write_bytes(content)
-    return dto.UploadRecord(**record, note=UPLOAD_NOTE)
+    saved = UPLOAD_DIR / f"{record['id']}_{filename}"
+    saved.write_bytes(content)
 
-
-@router.get("/uploads", response_model=dto.UploadsResponse, summary="업로드 기록")
-def list_uploads() -> dto.UploadsResponse:
-    return dto.UploadsResponse(
-        items=[dto.UploadRecord(**row, note=UPLOAD_NOTE) for row in state_store.uploads()]
+    # 변환(1~2초)과 색인(OpenAI, 수 초)이 요청을 잡아 두지 않게 배경으로 돌린다.
+    background.add_task(
+        upload_ingest.process_upload, record["id"], saved, Path(filename).stem
     )
+    return dto.UploadRecord(**record)
+
+
+@router.get("/uploads", response_model=dto.UploadsResponse, summary="업로드 기록과 처리 상태")
+def list_uploads() -> dto.UploadsResponse:
+    items = []
+    for row in state_store.uploads():
+        payload = dict(row)
+        payload.setdefault("note", upload_ingest.STATUS_NOTE.get(payload.get("status", "received"), ""))
+        items.append(dto.UploadRecord(**payload))
+    return dto.UploadsResponse(items=items)

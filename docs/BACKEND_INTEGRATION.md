@@ -48,7 +48,7 @@ python -m venv .venv
 | 체크리스트 저장 | **연결됨** — `POST /api/frontend/task-details/{id}/checklist/{item}` · data/user_state.json 에 남는다 |
 | 경험 노트 저장 | **연결됨** — `POST /api/frontend/experience-notes` |
 | 알림 읽음 영속화 | **연결됨** — `POST /api/frontend/notifications/read` (id가 업무에 붙어 있어 재계산에도 유지) |
-| 업로드 | **연결됨(저장까지)** — `POST /api/frontend/uploads` → data/uploads/. 분석·색인은 인제스트 실행 때 |
+| 업로드 | **연결됨(끝까지)** — 저장 → markitdown 변환 → LangChain 분할 → 문서함 반영 → (키 있으면) 요약·임베딩 색인. 상태는 received→analyzed→indexed, GET /api/frontend/uploads 로 추적 |
 | 업무 카드 직접 추가 | **연결됨** — `POST /api/frontend/tasks` · 홈의 "새 업무 추가" 버튼 |
 
 ## 근거 법령 (공문 → 매뉴얼 → 법령 연결)

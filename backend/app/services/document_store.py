@@ -60,10 +60,16 @@ _documents: dict[str, dict[str, Any]] = {}
 _ingested_count = 0
 
 
+_KNOWN_SOURCE_TYPES = {"hwpx", "hwp", "pdf", "xlsx"}
+
+
 def _from_ingest(record: dict[str, Any]) -> dict[str, Any]:
+    source_type = record.get("source_type") or "other"
     return {
         "title": record["title"],
-        "source_type": record["source_type"],
+        # 계약의 enum에 없는 확장자(txt, pptx 등)는 other 로 뭉뚱그린다.
+        # 업로드로 어떤 파일이 올지 모르는데 enum 밖 값 하나로 죽으면 안 된다.
+        "source_type": source_type if source_type in _KNOWN_SOURCE_TYPES else "other",
         "doc_number": record.get("doc_number"),
         "issued_on": None,  # 파일 이름에 날짜가 없다. 문서 본문에서 뽑는 것은 이후 과제.
         "page_count": record.get("page_count"),

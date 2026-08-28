@@ -151,19 +151,81 @@ def upload(client, name: str, content: bytes = b"x"):
     )
 
 
-def test_upload_saves_the_file_and_the_record(client) -> None:
+@pytest.fixture
+def upload_sandbox(tmp_path, monkeypatch):
+    """업로드 인제스트가 실제 산출물을 건드리지 않게 경로를 격리한다."""
+    from app import settings
+
+    monkeypatch.setattr(settings, "MARKDOWN_DIR", tmp_path / "markdown")
+    monkeypatch.setattr(settings, "DOCUMENTS_PATH", tmp_path / "documents.json")
+    monkeypatch.setattr(settings, "openai_api_key", lambda: None)  # 색인은 건너뜀
+    yield tmp_path
+
+
+LONG_TEXT = ("토요과학교실 운영 계획\n\n" + "실험 준비물과 일정을 정리한다. " * 40).encode("utf-8")
+
+
+def test_upload_flows_through_markitdown_and_langchain(client, upload_sandbox) -> None:
+    """업로드 → markitdown 변환 → LangChain 분할 → 문서함. 배치와 같은 흐름이다."""
+    from app import settings
     from app.api.frontend import UPLOAD_DIR
 
-    record = upload(client, "운영 계획.hwp", b"hwp-bytes").json()
-    assert record["size"] == 9
-    assert "인제스트" in record["note"]  # 분석까지 됐다고 말하지 않는다
+    record = upload(client, "새 운영계획.txt", LONG_TEXT).json()
+    assert record["status"] == "received"  # 응답은 저장 직후
 
-    saved = UPLOAD_DIR / f"{record['id']}_운영 계획.hwp"
-    assert saved.exists() and saved.read_bytes() == b"hwp-bytes"
-    saved.unlink()
+    # TestClient 는 배경 작업을 응답 뒤에 실행한다 → 목록에서 결과를 본다
+    row = client.get("/api/frontend/uploads").json()["items"][0]
+    assert row["status"] == "analyzed"  # 키가 없으니 색인 전까지
+    assert row["chunk_count"] >= 1
+    assert "키가 없어" in row["note"]  # 색인을 건너뛴 이유를 밝힌다
 
-    listed = client.get("/api/frontend/uploads").json()["items"]
-    assert [r["id"] for r in listed] == [record["id"]]
+    # md 가 배치와 같은 폴더 구조에 남는다 (다음 배치 인제스트에도 포함된다)
+    markdown = list((settings.MARKDOWN_DIR / "업로드").glob("*.md"))
+    assert len(markdown) == 1
+
+    # 문서함 API에 바로 보인다
+    document = client.get(f"/api/v1/documents/{row['document_id']}").json()
+    assert document["chunk_count"] == row["chunk_count"]
+    chunk = client.get(
+        f"/api/v1/documents/{row['document_id']}/chunks/chunk_0000"
+    ).json()
+    assert "토요과학교실" in chunk["content"]
+
+    for leftover in UPLOAD_DIR.glob(f"{record['id']}_*"):
+        leftover.unlink()
+
+
+def test_failed_conversion_reports_the_reason(client, upload_sandbox) -> None:
+    """빈·깨진 파일은 실패 상태와 사유를 남긴다. 조용히 사라지지 않는다."""
+    from app.api.frontend import UPLOAD_DIR
+
+    record = upload(client, "빈문서.txt", b" ").json()
+    row = client.get("/api/frontend/uploads").json()["items"][0]
+    assert row["status"] == "failed"
+    assert row["note"]
+
+    for leftover in UPLOAD_DIR.glob(f"{record['id']}_*"):
+        leftover.unlink()
+
+
+def test_reuploading_replaces_not_duplicates_the_document(client, upload_sandbox) -> None:
+    import json
+
+    from app import settings
+    from app.api.frontend import UPLOAD_DIR
+
+    upload(client, "계획.txt", LONG_TEXT)
+    first = client.get("/api/frontend/uploads").json()["items"][0]
+
+    upload(client, "계획.txt", LONG_TEXT)  # 같은 파일을 또 올림 (id는 다르다)
+    payload = json.loads(settings.DOCUMENTS_PATH.read_text(encoding="utf-8"))
+    uploaded_docs = [d for d in payload["documents"] if d["document_id"].startswith("doc_up_")]
+    # 업로드 기록마다 문서가 하나씩 — 같은 문서 id 가 중복 등록되지는 않는다
+    ids = [d["document_id"] for d in uploaded_docs]
+    assert len(ids) == len(set(ids))
+
+    for leftover in UPLOAD_DIR.glob("up_*"):
+        leftover.unlink()
 
 
 def test_upload_filename_cannot_escape_the_folder(client) -> None:

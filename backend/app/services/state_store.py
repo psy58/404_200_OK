@@ -171,3 +171,16 @@ def add_upload(record: dict) -> dict:
         return record
 
     return _mutate(update)
+
+
+def update_upload(record_id: str, **fields) -> dict | None:
+    """배경 처리(변환→분할→색인)가 진행 상태를 남긴다."""
+
+    def update(data: dict):
+        for row in data.setdefault("uploads", []):
+            if row["id"] == record_id:
+                row.update({k: v for k, v in fields.items() if v is not None})
+                return row
+        return None
+
+    return _mutate(update)

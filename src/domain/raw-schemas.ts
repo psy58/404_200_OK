@@ -172,9 +172,13 @@ export const RawUploadRecordSchema = z.object({
   filename: z.string(),
   size: z.number(),
   uploaded_at: z.string(),
-  status: z.literal("received"),
+  // received: 저장됨 → analyzed: 변환·분할(문서함 반영) → indexed: 검색 반영 / failed
+  status: z.enum(["received", "analyzed", "indexed", "failed"]),
   note: z.string(),
+  document_id: z.string().nullable().optional(),
+  chunk_count: z.number().nullable().optional(),
 });
+export const RawUploadsResponseSchema = z.object({ items: z.array(RawUploadRecordSchema) });
 
 export type RawUploadRecord = z.infer<typeof RawUploadRecordSchema>;
 export type RawAssistantAnswer = z.infer<typeof RawAssistantAnswerSchema>;

@@ -1,11 +1,18 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
-import { uploadDocument } from "@/services/uploadsService";
+import { getUploads, uploadDocument } from "@/services/uploadsService";
 import { useToast } from "@/state/ToastContext";
 import { InfoIcon, FileIcon, UploadIcon } from "@/lib/icons";
 import type { RawUploadRecord } from "@/domain/raw-schemas";
 
-type RowState = { name: string; size: number; status: "대기" | "업로드 중" | "저장됨" | "실패"; error?: string };
+type RowState = { name: string; size: number; status: string; recordId?: string; error?: string };
+
+const SERVER_STATUS_LABEL: Record<string, string> = {
+  received: "변환 중",
+  analyzed: "분석됨 · 문서함 반영",
+  indexed: "색인됨 · 검색 반영",
+  failed: "실패",
+};
 
 /**
  * F04 문서 업로드 — 파일이 실제로 백엔드(data/uploads/)에 저장된다.
@@ -32,7 +39,7 @@ export function UploadModal({ onClose }: { onClose: () => void }) {
         const record: RawUploadRecord = await uploadDocument(files[i]);
         saved += 1;
         setServerNote(record.note);
-        setRows((r) => r.map((row, j) => (j === i ? { ...row, status: "저장됨" } : row)));
+        setRows((r) => r.map((row, j) => (j === i ? { ...row, status: "저장됨", recordId: record.id } : row)));
       } catch (err) {
         setRows((r) =>
           r.map((row, j) => (j === i ? { ...row, status: "실패", error: (err as Error).message } : row)),
@@ -43,8 +50,37 @@ export function UploadModal({ onClose }: { onClose: () => void }) {
     toast(`${saved}/${files.length}개 파일을 서버에 저장했습니다`);
   }
 
+  // 변환·색인은 배경에서 진행된다. done 상태 동안 서버 상태를 따라가 칩을 갱신한다.
+  useEffect(() => {
+    if (phase !== "done") return;
+    let stopped = false;
+    const tick = async () => {
+      try {
+        const records = await getUploads();
+        if (stopped) return;
+        setRows((r) =>
+          r.map((row) => {
+            const record = records.find((x) => x.id === row.recordId);
+            if (!record) return row;
+            if (record.note) setServerNote(record.note);
+            return { ...row, status: SERVER_STATUS_LABEL[record.status] ?? record.status, error: record.status === "failed" ? record.note : row.error };
+          }),
+        );
+        const pending = records.some((x) => rowsHave(x.id) && (x.status === "received"));
+        if (!pending) clearInterval(timer);
+      } catch {
+        /* 폴링 실패는 조용히 넘어간다 */
+      }
+    };
+    const rowsHave = (id: string) => rows.some((r) => r.recordId === id);
+    const timer = setInterval(tick, 1500);
+    tick();
+    return () => { stopped = true; clearInterval(timer); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
+
   const sizeLabel = (n: number) => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
-  const doneCount = rows.filter((r) => r.status === "저장됨").length;
+  const doneCount = rows.filter((r) => r.status !== "대기" && r.status !== "업로드 중" && r.status !== "실패").length;
 
   return (
     <Modal
@@ -115,7 +151,7 @@ export function UploadModal({ onClose }: { onClose: () => void }) {
                 <span className="fn">{f.name}</span>
                 <span className="fm">{sizeLabel(f.size)}{f.error ? ` · ${f.error}` : ""}</span>
               </span>
-              <span className={`chip ${f.status === "저장됨" ? "ok" : f.status === "실패" ? "warn" : ""}`}>{f.status}</span>
+              <span className={`chip ${f.status.startsWith("색인") || f.status.startsWith("분석") || f.status === "저장됨" ? "ok" : f.status === "실패" ? "warn" : ""}`}>{f.status}</span>
             </div>
           ))}
           {phase === "done" && serverNote && (

@@ -209,10 +209,12 @@ class UploadRecord(BaseModel):
     filename: str
     size: int
     uploaded_at: str
-    status: Literal["received"] = "received"
-    note: str = Field(
-        description="이 파일이 다음에 어떻게 처리되는지에 대한 정직한 설명."
-    )
+    # received: 저장만 됨 / analyzed: 변환·분할 끝(문서함 반영) /
+    # indexed: 검색까지 반영 / failed: 실패(사유는 note)
+    status: Literal["received", "analyzed", "indexed", "failed"] = "received"
+    note: str = Field(description="지금 이 파일이 어느 단계인지에 대한 정직한 설명.")
+    document_id: str | None = None
+    chunk_count: int | None = None
 
 
 class UploadsResponse(BaseModel):
