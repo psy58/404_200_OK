@@ -10,6 +10,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from .api import frontend as frontend_api
 from .api.v1 import documents, query, workflows
 from .errors import register_error_handlers
 
@@ -37,6 +38,12 @@ register_error_handlers(app)
 app.include_router(query.router, prefix="/api/v1", tags=["query"])
 app.include_router(workflows.router, prefix="/api/v1", tags=["workflows"])
 app.include_router(documents.router, prefix="/api/v1", tags=["documents"])
+
+# React 프론트엔드가 쓰는 화면 형태 그대로의 응답. 정적 mock 경로의 별칭도
+# 함께 등록해 두어, 프론트는 fetch 경로를 바꾸지 않아도 실데이터를 받는다.
+# (명시적 라우트가 아래 정적 마운트보다 먼저 잡힌다.)
+app.include_router(frontend_api.router, prefix="/api/frontend", tags=["frontend"])
+app.include_router(frontend_api.alias, prefix="/mocks/backend", tags=["frontend"])
 
 
 @app.get("/health", include_in_schema=False)
