@@ -1,4 +1,5 @@
-import { Link, useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { getTasks, getTaskDetail } from "@/services/tasksService";
 import { getExperienceNotes } from "@/services/notesService";
@@ -17,12 +18,25 @@ import { COMMUNITY_POSTS } from "@/features/notes/communityData";
 import { useCommunityLinks } from "@/features/notes/communityLinks";
 import { ChevronRightIcon, FileIcon } from "@/lib/icons";
 import { daysUntil, formatFull } from "@/lib/dates";
+import type { TaskNavigationState } from "@/lib/taskNavigation";
 
 export function TaskDetailPage() {
   const { taskId = "" } = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
   const { activeAssignmentId } = useAssignment();
   const { open } = useOverlay();
   const linkedCommunityIds = useCommunityLinks();
+  const [showContextBar, setShowContextBar] = useState(false);
+  const context = location.state as TaskNavigationState | null;
+  const backTarget = context ?? { from: "/home", label: "내 업무", scrollY: 0 };
+
+  useEffect(() => {
+    const update = () => setShowContextBar(window.scrollY > 180);
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    return () => window.removeEventListener("scroll", update);
+  }, []);
 
   const tasksQuery = useQuery({
     queryKey: qk.tasks(activeAssignmentId ?? ""),
@@ -62,9 +76,14 @@ export function TaskDetailPage() {
 
   return (
     <div className="stack">
-      <Link className="btn btn-ghost btn-sm" to="/home" style={{ alignSelf: "flex-start", marginLeft: -10 }}>
-        <span style={{ transform: "rotate(180deg)", display: "flex" }}><ChevronRightIcon /></span> 내 업무 홈
-      </Link>
+      <div className="task-nav">
+        <button className="btn btn-ghost btn-sm" onClick={() => navigate(backTarget.from, { state: { restore: backTarget } })}>
+          <span className="back-arrow"><ChevronRightIcon /></span> {backTarget.label}로 돌아가기
+        </button>
+        <nav className="breadcrumb" aria-label="현재 위치">
+          <Link to="/">홈</Link><span>/</span><Link to={`/map?category=${encodeURIComponent(task.category)}`}>{task.category}</Link><span>/</span><strong>{task.title}</strong>
+        </nav>
+      </div>
 
       <div className="page-head">
         <div>
@@ -78,6 +97,7 @@ export function TaskDetailPage() {
           )}
         </div>
         <div style={{ display: "flex", gap: 9 }}>
+          <Link className="btn btn-quiet" to={`/map?focus=${task.id}`}>연간 지도에서 보기</Link>
           <button className="btn btn-quiet" onClick={() => open("note", task.id)}>
             경험 메모 쓰기
           </button>
@@ -174,6 +194,13 @@ export function TaskDetailPage() {
               )}
             </section>
           </div>
+        </div>
+      )}
+      {showContextBar && (
+        <div className="task-context-bar">
+          <button className="btn btn-ghost btn-sm" onClick={() => navigate(backTarget.from, { state: { restore: backTarget } })}><span className="back-arrow"><ChevronRightIcon /></span>{backTarget.label}</button>
+          <strong>{task.title}</strong>
+          <Link className="btn btn-ghost btn-sm" to={`/map?focus=${task.id}`}>연간 지도에서 보기</Link>
         </div>
       )}
     </div>

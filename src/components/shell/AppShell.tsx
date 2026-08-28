@@ -15,6 +15,7 @@ const ROUTE_SHORTCUTS: Record<string, string> = { h: "/home", m: "/map", d: "/do
 
 export function AppShell() {
   const [navOpen, setNavOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem("gam-sidebar-collapsed") === "true");
   const { overlay, open, close } = useOverlay();
   const navigate = useNavigate();
   const taskMatch = useMatch("/tasks/:taskId");
@@ -25,6 +26,10 @@ export function AppShell() {
     document.body.classList.toggle("nav-on", navOpen);
     return () => document.body.classList.remove("nav-on");
   }, [navOpen]);
+
+  useEffect(() => {
+    localStorage.setItem("gam-sidebar-collapsed", String(sidebarCollapsed));
+  }, [sidebarCollapsed]);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -60,9 +65,9 @@ export function AppShell() {
   }, [close, navigate]);
 
   return (
-    <div className="app">
+    <div className={`app${sidebarCollapsed ? " side-collapsed" : ""}`}>
       <div className="side-scrim" onClick={() => setNavOpen(false)} />
-      <Sidebar onNavigate={() => setNavOpen(false)} />
+      <Sidebar collapsed={sidebarCollapsed} onNavigate={() => setNavOpen(false)} onToggleCollapse={() => setSidebarCollapsed((value) => !value)} />
       <div className="main">
         <Topbar onToggleNav={() => setNavOpen((v) => !v)} />
         <main className="view" id="view" tabIndex={-1}>

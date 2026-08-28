@@ -9,6 +9,7 @@ import { qk } from "@/state/queryKeys";
 import { SearchIcon } from "@/lib/icons";
 import { SourceTag } from "@/components/ui/SourceTag";
 import { formatFull, formatShort } from "@/lib/dates";
+import { taskNavigationState } from "@/lib/taskNavigation";
 
 /**
  * F-없음(S07 통합검색). Searches across cached tasks/documents/notes for the
@@ -87,7 +88,7 @@ export function SearchBox() {
             <>
               <div className="res-group"><span className="eyebrow">업무</span></div>
               {results.tasks.map((t) => (
-                <button key={t.id} className="res-item" onClick={() => { navigate(`/tasks/${t.id}`); setOpen(false); setQ(""); }}>
+                <button key={t.id} className="res-item" onClick={() => { navigate(`/tasks/${t.id}`, { state: taskNavigationState("/home", "검색 결과") }); setOpen(false); setQ(""); }}>
                   <span className="rt">{t.title}</span>
                   <span className="rm num">마감 {formatFull(t.officialDueDate)} · 작년 {formatShort(t.previousActualDate)}</span>
                 </button>

@@ -7,6 +7,7 @@ import { qk } from "@/state/queryKeys";
 import { useToast } from "@/state/ToastContext";
 import { AlertIcon } from "@/lib/icons";
 import type { NotificationKind } from "@/domain/types";
+import { taskNavigationState } from "@/lib/taskNavigation";
 
 const KIND_BG: Record<NotificationKind, string> = {
   due: "var(--danger-bg)",
@@ -61,7 +62,7 @@ export function NotificationPanel({ onClose }: { onClose: () => void }) {
               className={`notif${n.isNew ? " new" : ""}`}
               onClick={() => {
                 if (n.relatedTaskId) {
-                  navigate(`/tasks/${n.relatedTaskId}`);
+                  navigate(`/tasks/${n.relatedTaskId}`, { state: taskNavigationState("/home", "알림") });
                   onClose();
                 }
               }}

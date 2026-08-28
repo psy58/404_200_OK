@@ -1,16 +1,19 @@
-import { Link } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Chip } from "@/components/ui/Chip";
 import { ChevronRightIcon } from "@/lib/icons";
 import { daysUntil, formatShort } from "@/lib/dates";
 import type { TaskInstance } from "@/domain/types";
+import { taskNavigationState } from "@/lib/taskNavigation";
 
 export function TaskRow({ task }: { task: TaskInstance }) {
+  const navigate = useNavigate();
+  const location = useLocation();
   const n = daysUntil(task.officialDueDate);
   const ddClass = n <= 5 ? "d0" : n <= 14 ? "d1" : "d2";
   const pct = task.checklistTotal > 0 ? Math.round((task.checklistDone / task.checklistTotal) * 100) : 0;
 
   return (
-    <Link className="trow" to={`/tasks/${task.id}`}>
+    <button className="trow" onClick={() => navigate(`/tasks/${task.id}`, { state: taskNavigationState(location.pathname, "내 업무") })}>
       <span className={`dd ${ddClass} num`}>{n < 0 ? "지남" : `D-${n}`}</span>
       <span>
         <span className="tt">{task.title}</span>
@@ -35,6 +38,6 @@ export function TaskRow({ task }: { task: TaskInstance }) {
       <span className="go">
         <ChevronRightIcon />
       </span>
-    </Link>
+    </button>
   );
 }

@@ -1,10 +1,12 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { FileIcon } from "@/lib/icons";
 import { KIND_LABEL, type CommunityPost } from "./communityData";
 import { connectCommunityPost, useCommunityLinks } from "./communityLinks";
+import { taskNavigationState } from "@/lib/taskNavigation";
 
 export function CommunityPostCard({ post, compact = false, taskContext = false }: { post: CommunityPost; compact?: boolean; taskContext?: boolean }) {
+  const navigate = useNavigate();
   const [helpful, setHelpful] = useState(false);
   const [showLinkPrompt, setShowLinkPrompt] = useState(false);
   const linkedIds = useCommunityLinks();
@@ -30,9 +32,9 @@ export function CommunityPostCard({ post, compact = false, taskContext = false }
         <span className="community-time">{post.createdAt}</span>
       </div>
 
-      <Link className="community-task" to={`/tasks/${post.taskId}`}>
+      <button className="community-task" onClick={() => navigate(`/tasks/${post.taskId}`, { state: taskNavigationState("/notes", "선생님들의 감") })}>
         <span>{post.taskCategory}</span><b>›</b><strong>{post.taskTitle}</strong>
-      </Link>
+      </button>
 
       <p className="community-body">{post.body}</p>
 
