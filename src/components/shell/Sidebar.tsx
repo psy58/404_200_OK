@@ -12,7 +12,7 @@ import {
   MapNavIcon,
   NotesNavIcon,
 } from "@/lib/icons";
-import gamIcon from "@/assets/brand/gam-icon.png";
+import gamLockup from "@/assets/brand/gam-lockup-dark.png";
 
 export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const { school, activeAssignment } = useAssignment();
@@ -27,11 +27,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <aside className="side">
       <div className="brand">
-        <img src={gamIcon} alt="" width={36} height={36} />
-        <span className="wm">
-          <span className="wm1">GAM</span>
-          <span className="wm2">GET A MAP</span>
-        </span>
+        <img src={gamLockup} alt="GAM · Get A Map" className="brand-lockup" />
       </div>
 
       <div className="ctx">

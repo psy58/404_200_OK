@@ -77,7 +77,8 @@ a{color:inherit;text-decoration:none}
   background:linear-gradient(180deg,#0C2C4F 0%, #0A2340 55%, #081D36 100%);
   color:#CBDCEC;display:flex;flex-direction:column;
 }
-.brand{padding:26px 22px 22px;display:flex;align-items:center;gap:11px}
+.brand{padding:30px 22px 26px;display:flex;align-items:center;justify-content:center}
+.brand-lockup{height:120px;width:auto;display:block}
 .brand .wm{line-height:1}
 .brand .wm1{font-size:22px;font-weight:800;color:#fff;letter-spacing:-.03em;display:block}
 .brand .wm2{font-size:9.5px;font-weight:700;letter-spacing:.24em;color:var(--gam);display:block;margin-top:5px}
