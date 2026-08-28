@@ -295,3 +295,22 @@ def test_notifications_point_at_current_year_tasks(api) -> None:
     for item in get(api, "/api/frontend/notifications")["items"]:
         assert item["related_task_id"] in task_ids
         assert "작년" in item["message"]  # 알림의 근거는 작년 기록이다
+
+
+def test_feed_links_point_at_current_year_tasks(api) -> None:
+    """피드의 이동 링크는 올해 업무 id여야 한다.
+
+    작년 워크플로 id를 주면 상세 페이지가 업무 목록에서 찾지 못해
+    "이 업무를 찾을 수 없습니다"가 떴다. 실제로 그랬다.
+    """
+    task_ids = {t["id"] for t in get(api, "/api/frontend/tasks")["items"]}
+    for item in get(api, "/api/frontend/feed")["items"]:
+        if item["related_task_id"] is not None:
+            assert item["related_task_id"] in task_ids
+
+
+def test_documents_name_the_current_year_task(api) -> None:
+    titles = {t["title"] for t in get(api, "/api/frontend/tasks")["items"]}
+    for item in get(api, "/api/frontend/documents")["items"]:
+        if item["related_task_title"] != "일반 문서":
+            assert item["related_task_title"] in titles

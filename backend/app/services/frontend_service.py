@@ -439,6 +439,26 @@ def task_detail(task_id: str) -> dto.TaskDetail:
 # --- feed / documents --------------------------------------------------------
 
 
+def _current_task_of(store: _Store, document_id: str) -> dto.Task | None:
+    """이 문서(작년 기록)가 속한 사업의 **올해 업무**.
+
+    화면의 업무 목록은 올해(투영 포함) 것이므로, 피드·문서에서 업무로
+    이동하는 링크도 올해 업무 id를 가리켜야 한다. 작년 워크플로 id를 주면
+    상세 페이지가 목록에서 업무를 찾지 못해 "찾을 수 없습니다"가 뜬다.
+    """
+    workflow = store.document_workflow.get(document_id)
+    if workflow is None:
+        return None
+    year = _academic_year(_today())
+    by_year = _series(store).get(workflow["business_name"], {})
+    current, previous = by_year.get(year), by_year.get(year - 1)
+    if current:
+        return _to_task(current)
+    if previous:
+        return _project_task(previous)
+    return None
+
+
 def _body_nodes(store: _Store) -> list[tuple[str, dict]]:
     return [
         (document_id, node)
@@ -458,7 +478,7 @@ def feed() -> dto.FeedResponse:
 
     items = []
     for document_id, node in received[:FEED_LIMIT]:
-        workflow = store.document_workflow.get(document_id)
+        task = _current_task_of(store, document_id)
         kind = doctype.classify(node.get("title"))
         items.append(
             dto.FeedItem(
@@ -467,8 +487,8 @@ def feed() -> dto.FeedResponse:
                 issuer=node.get("sender") or "교육청",
                 received_at=_event_date(node) or "",
                 hint=doctype.LABEL.get(kind, "공문")
-                + (f" · {workflow['name']} 관련" if workflow else ""),
-                related_task_id=workflow["workflow_id"] if workflow else None,
+                + (f" · {task.title} 관련" if task else ""),
+                related_task_id=task.id if task else None,
             )
         )
     return dto.FeedResponse(items=items)
@@ -482,7 +502,7 @@ def documents() -> dto.DocumentsResponse:
 
     items = []
     for document_id, node in rows[:DOCUMENT_LIMIT]:
-        workflow = store.document_workflow.get(document_id)
+        task = _current_task_of(store, document_id)
         items.append(
             dto.DocumentRow(
                 id=document_id,
@@ -491,7 +511,7 @@ def documents() -> dto.DocumentsResponse:
                 or node.get("issuing_number")
                 or "-",
                 source_type=_source_type(node),
-                related_task_title=workflow["name"] if workflow else "일반 문서",
+                related_task_title=task.title if task else "일반 문서",
                 issued_at=_event_date(node) or "",
                 # 전 문서가 변환·색인을 거쳤으므로 분석은 끝난 상태다.
                 analysis_status="complete",

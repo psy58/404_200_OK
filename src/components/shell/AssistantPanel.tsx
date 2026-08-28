@@ -32,14 +32,16 @@ export function AssistantPanel({ taskId, onClose }: { taskId?: string; onClose: 
     queryFn: ({ signal }) => getTasks(activeAssignmentId ?? "", signal),
     enabled: !!activeAssignmentId,
   });
-  const task = tasksQuery.data?.find((t) => t.id === taskId) ?? tasksQuery.data?.[0];
+  // 업무 상세에서 열었을 때만 그 업무로 한정한다. 전역 버튼(fab)으로 열면
+  // 전체 문서에서 찾는다 — 예전엔 첫 업무에 몰래 한정되어 엉뚱한 범위로 답했다.
+  const task = taskId ? tasksQuery.data?.find((t) => t.id === taskId) : undefined;
 
   const [question, setQuestion] = useState("");
   const [elapsed, setElapsed] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const mutation = useMutation<AssistantAnswer, Error, string>({
-    mutationFn: (q) => askAssistant(q, task?.id),
+    mutationFn: (q) => askAssistant(q, taskId),
   });
 
   // 근거 검색 + 답변 생성에 2~5초 걸린다. 멈춘 것처럼 보이지 않게 경과를 보여 준다.
@@ -92,7 +94,9 @@ export function AssistantPanel({ taskId, onClose }: { taskId?: string; onClose: 
     >
       <div style={{ padding: "22px 24px" }}>
         <p className="t-cap" style={{ marginTop: -4, marginBottom: 20 }}>
-          현재 업무 맥락 안에서만 답합니다. 근거 문서 없이 답하지 않습니다.
+          {task
+            ? "현재 업무의 문서 안에서만 답합니다. 근거 문서 없이 답하지 않습니다."
+            : "전체 공문에서 찾아 답합니다. 근거 문서 없이 답하지 않습니다."}
         </p>
         {task && (
           <>
