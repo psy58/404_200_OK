@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { getTasks } from "@/services/tasksService";
+import { getAnnualTasks } from "@/services/tasksService";
 import { useAssignment } from "@/state/AssignmentContext";
 import { qk } from "@/state/queryKeys";
 import { QueryBoundary } from "@/components/ui/QueryBoundary";
@@ -23,15 +23,16 @@ function barClass(status: TaskStatus): string {
 }
 
 export function AnnualMapPage() {
-  const { activeAssignment, activeAssignmentId } = useAssignment();
+  const { activeAssignment, context, school } = useAssignment();
   const navigate = useNavigate();
+  const academicYear = school?.academicYear ?? new Date().getFullYear();
   const [statusFilter, setStatusFilter] = useState<TaskStatus | "all">("all");
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
 
   const tasksQuery = useQuery({
-    queryKey: qk.tasks(activeAssignmentId ?? ""),
-    queryFn: ({ signal }) => getTasks(activeAssignmentId ?? "", signal),
-    enabled: !!activeAssignmentId,
+    queryKey: context ? qk.annual(context, academicYear) : ["annual", "disabled"],
+    queryFn: ({ signal }) => getAnnualTasks(context!, academicYear, signal),
+    enabled: !!context,
   });
 
   const categories = useMemo(
@@ -55,7 +56,7 @@ export function AnnualMapPage() {
       <div className="page-head">
         <div>
           <span className="eyebrow">
-            {activeAssignment?.name ?? ""} · {activeAssignment ? "2026학년도" : ""}
+            {activeAssignment?.name ?? ""} · {activeAssignment ? `${academicYear}학년도` : ""}
           </span>
           <h1 className="t-display" style={{ marginTop: 9 }}>
             연간 업무 지도

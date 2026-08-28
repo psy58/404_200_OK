@@ -1,70 +1,66 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { toggleChecklistItemMockOnly } from "@/services/checklistService";
+import { updateChecklistItem } from "@/services/checklistService";
+import { useAssignment } from "@/state/AssignmentContext";
 import { useToast } from "@/state/ToastContext";
 import { qk } from "@/state/queryKeys";
 import { CheckIcon } from "@/lib/icons";
 import type { ChecklistItem, TaskDetail } from "@/domain/types";
 
-/**
- * F07 업무 체크리스트. Optimistic toggle with rollback on failure — see
- * services/checklistService.ts. Persistence is MOCK_ONLY: a page reload
- * will not keep the change (BACKEND_CONTRACT_REQUIRED for real storage).
- */
+interface ToggleInput { itemId: string; complete: boolean; expectedVersion: number }
+
+/** F07 optimistic update with version/idempotency and exact rollback. */
 export function ChecklistSection({ taskId, checklist }: { taskId: string; checklist: ChecklistItem[] }) {
   const queryClient = useQueryClient();
+  const { context } = useAssignment();
   const { toast } = useToast();
-  const done = checklist.filter((c) => c.done).length;
+  const done = checklist.filter((item) => item.done).length;
+  const key = context ? qk.taskDetail(context, taskId) : ["task-detail", "disabled", taskId];
 
-  const mutation = useMutation<{ ok: true }, Error, string, { previous?: TaskDetail }>({
-    mutationFn: () => toggleChecklistItemMockOnly(),
-    onMutate: async (itemId: string) => {
-      await queryClient.cancelQueries({ queryKey: qk.taskDetail(taskId) });
-      const previous = queryClient.getQueryData<TaskDetail>(qk.taskDetail(taskId));
+  const mutation = useMutation<TaskDetail, Error, ToggleInput, { previous?: TaskDetail }>({
+    mutationFn: (input) => {
+      if (!context) throw new Error("담당 업무 맥락을 확인해 주세요.");
+      return updateChecklistItem(context, { taskId, ...input });
+    },
+    onMutate: async (input) => {
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<TaskDetail>(key);
       if (previous) {
-        queryClient.setQueryData<TaskDetail>(qk.taskDetail(taskId), {
+        queryClient.setQueryData<TaskDetail>(key, {
           ...previous,
-          checklist: previous.checklist.map((c) => (c.id === itemId ? { ...c, done: !c.done } : c)),
+          checklist: previous.checklist.map((item) => item.id === input.itemId ? { ...item, done: input.complete } : item),
         });
       }
       return { previous };
     },
-    onError: (_err, _itemId, context) => {
-      // Roll back to the pre-mutation cache. We deliberately do NOT
-      // invalidate/refetch on success: the backing fixture is a static
-      // JSON file with no real persistence, so a refetch would silently
-      // discard the optimistic change and make the checklist look broken.
-      // The optimistic cache IS the session's source of truth until a real
-      // backend (BACKEND_CONTRACT_REQUIRED) replaces this mock.
-      if (context?.previous) queryClient.setQueryData(qk.taskDetail(taskId), context.previous);
-      toast("저장에 실패했습니다. 이전 상태로 되돌렸습니다.");
+    onSuccess: (saved) => {
+      queryClient.setQueryData(key, saved);
+      if (context) queryClient.invalidateQueries({ queryKey: qk.tasks(context) });
+    },
+    onError: (_error, _input, rollback) => {
+      if (rollback?.previous) queryClient.setQueryData(key, rollback.previous);
+      toast("저장하지 못했습니다. 이전 상태로 되돌렸습니다.");
     },
   });
 
   return (
     <section className="card card-pad">
       <div className="card-head">
-        <span className="lead">
-          <h2 className="t-h2">업무 체크리스트</h2>
-          <span className="chip navy num">{done}/{checklist.length}</span>
-        </span>
+        <span className="lead"><h2 className="t-h2">업무 체크리스트</h2><span className="chip navy num">{done}/{checklist.length}</span></span>
         <span className="t-cap">체크 기록은 인수인계서에 자동 반영됩니다</span>
       </div>
-      {checklist.map((c) => (
-        <div className={`check${c.done ? " on" : ""}`} key={c.id}>
+      {checklist.map((item) => (
+        <div className={`check${item.done ? " on" : ""}`} key={item.id}>
           <button
             className="cbox"
             role="checkbox"
-            aria-checked={c.done}
-            aria-label={c.text}
-            disabled={mutation.isPending}
-            onClick={() => mutation.mutate(c.id)}
+            aria-checked={item.done}
+            aria-label={item.text}
+            disabled={mutation.isPending || !context}
+            onClick={() => mutation.mutate({ itemId: item.id, complete: !item.done, expectedVersion: item.version })}
           >
-            {c.done ? <CheckIcon /> : null}
+            {item.done ? <CheckIcon /> : null}
           </button>
-          <span>
-            <span className="ct">{c.text}</span>
-            {c.note && <span className="cm">{c.note}</span>}
-          </span>
+          <span><span className="ct">{item.text}</span>{item.note && <span className="cm">{item.note}</span>}</span>
         </div>
       ))}
     </section>

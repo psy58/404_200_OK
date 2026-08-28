@@ -14,12 +14,12 @@ import {
 } from "@/lib/icons";
 
 export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
-  const { school, activeAssignment } = useAssignment();
+  const { school, activeAssignment, context, boundary } = useAssignment();
   const { open } = useOverlay();
   const tasksQuery = useQuery({
-    queryKey: qk.tasks(activeAssignment?.id ?? ""),
-    queryFn: ({ signal }) => getTasks(activeAssignment?.id ?? "", signal),
-    enabled: !!activeAssignment,
+    queryKey: context ? qk.tasks(context) : ["tasks", "disabled"],
+    queryFn: ({ signal }) => getTasks(context!, signal),
+    enabled: !!context,
   });
   const urgentCount = tasksQuery.data?.filter((t) => t.status === "in_progress" && daysUntil(t.officialDueDate) <= 10).length ?? 0;
 
@@ -79,7 +79,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       <div className="side-foot">
         <p>기록은 이 학교의 조직기억으로 남습니다.</p>
         <p style={{ marginTop: 6 }}>
-          <span className="em num">전임자 문서 412건</span> 분석 완료
+          <span className="em">{boundary?.label ?? "API 경계 확인 중"}</span>
         </p>
       </div>
     </aside>

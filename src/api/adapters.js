@@ -60,6 +60,7 @@ function adaptContext(dto) {
 export function adaptSession(dto) {
   return Object.freeze({
     status: "ready",
+    version: dto.session.version,
     user: Object.freeze({
       id: dto.session.user.id,
       displayName: dto.session.user.display_name,

@@ -1,8 +1,0 @@
-{
-  "school": { "id": "sch_01", "name": "한빛중학교", "academic_year": 2026 },
-  "items": [
-    { "id": "sci", "name": "과학정보부장", "active_from": "2026-03-01", "status": "server_allowed", "task_count": 12 },
-    { "id": "gift", "name": "영재교육", "active_from": "2026-03-01", "status": "server_allowed", "task_count": 9 },
-    { "id": "sp", "name": "특수학급 설치 TF", "active_from": "2026-06-10", "status": "server_allowed", "note": "전례 없는 신규 업무", "task_count": 4 }
-  ]
-}

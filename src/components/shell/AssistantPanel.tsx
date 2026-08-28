@@ -13,11 +13,11 @@ import { daysUntil, formatFull, formatShort } from "@/lib/dates";
  * grounded-answer backend contract exists (BACKEND_CONTRACT_REQUIRED).
  */
 export function AssistantPanel({ taskId, onClose }: { taskId?: string; onClose: () => void }) {
-  const { activeAssignmentId } = useAssignment();
+  const { context } = useAssignment();
   const tasksQuery = useQuery({
-    queryKey: qk.tasks(activeAssignmentId ?? ""),
-    queryFn: ({ signal }) => getTasks(activeAssignmentId ?? "", signal),
-    enabled: !!activeAssignmentId,
+    queryKey: context ? qk.tasks(context) : ["tasks", "disabled"],
+    queryFn: ({ signal }) => getTasks(context!, signal),
+    enabled: !!context,
   });
   const task = tasksQuery.data?.find((t) => t.id === taskId) ?? tasksQuery.data?.[0];
 

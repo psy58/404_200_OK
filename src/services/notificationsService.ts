@@ -1,16 +1,20 @@
+import type { NotificationCenterVM, RequestContext } from "@/api/ui-api-boundary-v2";
 import { adaptNotification } from "@/domain/adapters";
-import { RawNotificationsResponseSchema } from "@/domain/raw-schemas";
 import type { AppNotification } from "@/domain/types";
-import { fetchMock } from "./mockClient";
+import { getFrontendApiService } from "./apiClient";
+import { requestScope, runApiRequest } from "./requestExecution";
 
-/**
- * F08 — real P1 feature per docs/영상_기반_디자인_참고_지시서.md §5.9 and
- * docs/프론트엔드_구현_프롬프트_영상_반영_보충안.md §8: this screen must not be
- * decorative. Backing store here is still JSON mock (BACKEND_CONTRACT_REQUIRED
- * for delivery/read-receipt persistence), so "mark all read" only updates
- * client state, not a server record — see NotificationPanel usage.
- */
-export async function getNotifications(signal?: AbortSignal): Promise<AppNotification[]> {
-  const raw = await fetchMock("/mocks/backend/notifications.json", RawNotificationsResponseSchema, { signal });
-  return raw.items.map(adaptNotification);
+export interface NotificationsResult {
+  status: NotificationCenterVM["status"];
+  unread: number;
+  issue: NotificationCenterVM["issue"];
+  items: AppNotification[];
+}
+
+export async function getNotifications(context: RequestContext, signal?: AbortSignal): Promise<NotificationsResult> {
+  return runApiRequest(requestScope(["notifications", context.sessionEpoch, context.assignmentId]), signal, async (requestSignal) => {
+    const api = await getFrontendApiService();
+    const result = await api.getNotifications(context, { signal: requestSignal });
+    return { status: result.status, unread: result.unread, issue: result.issue, items: result.items.map(adaptNotification) };
+  });
 }

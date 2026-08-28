@@ -1,7 +1,7 @@
 /**
  * Frontend domain model — camelCase, UI-facing. Never constructed directly
- * from raw JSON; always produced by an adapter in domain/adapters.ts after
- * raw-schemas.ts validation. See docs/requirements-traceability-design.md.
+ * from raw JSON; always produced by domain/adapters.ts after the V2 runtime
+ * boundary has validated and normalized the network/mock DTO.
  */
 
 export type TaskStatus = "in_progress" | "upcoming" | "planned" | "complete";
@@ -41,6 +41,8 @@ export interface TaskInstance {
   timelineMonthStart: number;
   timelineMonthEnd: number;
   rationale: string;
+  nextAction: string;
+  version: number;
 }
 
 export interface FeedItem {
@@ -58,6 +60,7 @@ export interface DocumentItem {
   documentNumber: string;
   sourceType: Exclude<SourceType, "experience">;
   relatedTaskTitle: string;
+  relatedTaskId: string | null;
   issuedAt: string;
   analysisStatus: AnalysisStatus;
   verificationStatus: VerificationStatus;
@@ -72,6 +75,8 @@ export interface ExperienceNote {
   isMine: boolean;
   visibility: NoteVisibility;
   body: string;
+  version: number;
+  approval: "draft" | "approved" | "rejected" | "review-required";
 }
 
 export interface AppNotification {
@@ -88,6 +93,7 @@ export interface ChecklistItem {
   text: string;
   note: string;
   done: boolean;
+  version: number;
 }
 
 export interface EvidenceLink {
@@ -110,11 +116,29 @@ export interface FormRef {
 
 export interface TaskDetail {
   taskId: string;
+  version: number;
   checklist: ChecklistItem[];
   evidenceChain: EvidenceLink[];
   previousTimeline: TimelineEvent[];
   relatedForms: FormRef[];
   guidelineChangeNotice?: string;
+}
+
+export interface SearchResult {
+  id: string;
+  type: "task" | "document" | "evidence" | "experience";
+  title: string;
+  description: string;
+  target: string;
+}
+
+export interface HandoverPreview {
+  academicYear: number;
+  version: number;
+  annualFlow: TaskInstance[];
+  incomplete: TaskInstance[];
+  evidence: { id: string; title: string; documentNumber: string }[];
+  notes: ExperienceNote[];
 }
 
 /** Common screen state per docs/03 §8.2, §11 — every P0 screen implements this. */

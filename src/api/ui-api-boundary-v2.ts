@@ -112,6 +112,7 @@ export interface AssignmentSummaryVM {
 
 export interface SessionContextVM {
   readonly status: ViewStatus;
+  readonly version: number;
   readonly user: UserSummaryVM;
   readonly school: SchoolSummaryVM;
   readonly assignments: readonly AssignmentSummaryVM[];

@@ -8,6 +8,7 @@ import { QueryBoundary } from "@/components/ui/QueryBoundary";
 import { SourceTag } from "@/components/ui/SourceTag";
 import { InfoIcon } from "@/lib/icons";
 import type { ExperienceNote } from "@/domain/types";
+import { useAssignment } from "@/state/AssignmentContext";
 
 type FilterKey = "all" | "mine" | "shared";
 
@@ -30,7 +31,12 @@ function filterNotes(notes: ExperienceNote[], key: FilterKey): ExperienceNote[] 
 export function NotesPage() {
   const [filter, setFilter] = useState<FilterKey>("all");
   const { open } = useOverlay();
-  const query = useQuery({ queryKey: qk.notes(), queryFn: ({ signal }) => getExperienceNotes(signal) });
+  const { context, user } = useAssignment();
+  const query = useQuery({
+    queryKey: context ? qk.notes(context) : ["notes", "disabled"],
+    queryFn: ({ signal }) => getExperienceNotes(context!, user?.displayName ?? "", signal),
+    enabled: !!context,
+  });
   const notes = query.data ?? [];
 
   return (

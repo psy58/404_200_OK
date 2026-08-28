@@ -1,9 +1,13 @@
 import { SearchBox } from "./SearchBox";
 import { useOverlay } from "@/state/OverlayContext";
 import { BellIcon, MenuIcon, UploadIcon } from "@/lib/icons";
+import { useAssignment } from "@/state/AssignmentContext";
 
 export function Topbar({ onToggleNav }: { onToggleNav: () => void }) {
   const { open } = useOverlay();
+  const { user } = useAssignment();
+  const now = new Intl.DateTimeFormat("ko-KR", { year: "numeric", month: "2-digit", day: "2-digit", weekday: "short" }).format(new Date());
+  const initial = user?.displayName.slice(0, 1) ?? "?";
 
   return (
     <header className="topbar">
@@ -11,7 +15,7 @@ export function Topbar({ onToggleNav }: { onToggleNav: () => void }) {
         <MenuIcon />
       </button>
       <span className="date-now num">
-        2026. 08. 28. 금 <span>· 2학기 3주차</span>
+        {now}
       </span>
 
       <SearchBox />
@@ -23,13 +27,12 @@ export function Topbar({ onToggleNav }: { onToggleNav: () => void }) {
         </button>
         <button className="icon-btn" aria-label="알림" onClick={() => open("notifications")}>
           <BellIcon />
-          <span className="dot" />
         </button>
         <button className="who">
-          <span className="ava">박</span>
+          <span className="ava">{initial}</span>
           <span>
-            <span className="n">박새연</span>
-            <span className="r">교사 · 과학정보부</span>
+            <span className="n">{user?.displayName ?? "사용자 확인 중"}</span>
+            <span className="r">{user?.roleLabel ?? "서버 세션 확인"}</span>
           </span>
         </button>
       </div>

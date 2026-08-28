@@ -10,8 +10,9 @@ import { CheckIcon, InfoIcon } from "@/lib/icons";
  * exists yet to accept a school-proposed task — see docs/01 §8.2.
  */
 export function AssignmentModal({ onClose }: { onClose: () => void }) {
-  const { assignments, activeAssignmentId, setActiveAssignmentId, school } = useAssignment();
+  const { assignments, activeAssignmentId, setActiveAssignmentId, school, status, errorMessage } = useAssignment();
   const [pending, setPending] = useState(activeAssignmentId);
+  const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
   return (
@@ -31,13 +32,22 @@ export function AssignmentModal({ onClose }: { onClose: () => void }) {
           </button>
           <button
             className="btn btn-primary"
-            onClick={() => {
-              if (pending) setActiveAssignmentId(pending);
-              onClose();
-              toast("담당 업무를 전환했습니다");
+            disabled={!pending || saving || status === "switching"}
+            onClick={async () => {
+              if (!pending) return;
+              setSaving(true);
+              try {
+                await setActiveAssignmentId(pending);
+                onClose();
+                toast("담당 업무를 전환했습니다");
+              } catch {
+                toast("담당 업무를 전환하지 못했습니다. 입력과 기존 화면은 유지됩니다.");
+              } finally {
+                setSaving(false);
+              }
             }}
           >
-            이 업무로 계속하기
+            {saving ? "전환 중…" : "이 업무로 계속하기"}
           </button>
         </>
       }
@@ -55,11 +65,12 @@ export function AssignmentModal({ onClose }: { onClose: () => void }) {
             </span>
             <span className="ot">{a.name}</span>
             <span className="om">
-              {a.activeFrom}~ · {a.note ?? "서버 허용"} · 업무 {a.taskCount}개
+              {a.note ?? a.activeFrom} · 업무 {a.taskCount}개
             </span>
           </button>
         ))}
       </div>
+      {errorMessage && <p className="t-cap" role="alert" style={{ marginTop: 12 }}>{errorMessage}</p>}
       <div className="notice info" style={{ marginTop: 18 }}>
         <InfoIcon />
         <span>

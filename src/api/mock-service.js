@@ -48,11 +48,15 @@ function wait(milliseconds, signal) {
   if (signal?.aborted) return Promise.reject(abortError());
   if (milliseconds <= 0) return Promise.resolve();
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(resolve, milliseconds);
-    signal?.addEventListener("abort", () => {
+    const onAbort = () => {
       clearTimeout(timer);
       reject(abortError());
-    }, { once: true });
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, milliseconds);
+    signal?.addEventListener("abort", onAbort, { once: true });
   });
 }
 
@@ -150,6 +154,13 @@ export async function createMockApi(options = {}) {
   let nextExperienceNoteSequence = task.experience_notes.length + 1;
   const seedAssignmentId = home.context.assignment_id;
   let authenticated = true;
+
+  const syncTaskSnapshots = () => {
+    home.urgent = home.urgent.map((candidate) => candidate.id === task.task.id ? clone(task.task) : candidate);
+    home.this_month = home.this_month.map((candidate) => candidate.id === task.task.id ? clone(task.task) : candidate);
+    home.next_thirty_days = home.next_thirty_days.map((candidate) => candidate.id === task.task.id ? clone(task.task) : candidate);
+    if (home.primary_task?.id === task.task.id) home.primary_task = clone(task.task);
+  };
 
   const problem = (status) => {
     const match = problemCatalog.items.find((item) => item.status === status);
@@ -349,9 +360,7 @@ export async function createMockApi(options = {}) {
         task.task.version += 1;
         task.task.checklist_done = task.checklist.filter((candidate) => candidate.complete).length;
         task.checklist.forEach((candidate) => { candidate.version = task.task.version; });
-        home.urgent = home.urgent.map((candidate) => candidate.id === task.task.id ? clone(task.task) : candidate);
-        home.this_month = home.this_month.map((candidate) => candidate.id === task.task.id ? clone(task.task) : candidate);
-        if (home.primary_task?.id === task.task.id) home.primary_task = clone(task.task);
+        syncTaskSnapshots();
         return adaptTaskDetail(clone(task));
       });
     },
@@ -442,6 +451,7 @@ export async function createMockApi(options = {}) {
       return mutationResult(mutation.idempotencyKey, fingerprint, () => {
         task.task.version += 1;
         task.checklist.forEach((candidate) => { candidate.version = task.task.version; });
+        syncTaskSnapshots();
         task.experience_notes.push({
           id: `note-session-${nextExperienceNoteSequence++}`,
           task_id: task.task.id,
@@ -481,6 +491,7 @@ export async function createMockApi(options = {}) {
         note.version += 1;
         task.task.version += 1;
         task.checklist.forEach((candidate) => { candidate.version = task.task.version; });
+        syncTaskSnapshots();
         return experienceNotesView();
       });
     },
@@ -503,6 +514,7 @@ export async function createMockApi(options = {}) {
         task.experience_notes.splice(index, 1);
         task.task.version += 1;
         task.checklist.forEach((candidate) => { candidate.version = task.task.version; });
+        syncTaskSnapshots();
         return experienceNotesView();
       });
     },

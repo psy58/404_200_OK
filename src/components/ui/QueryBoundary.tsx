@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { UseQueryResult } from "@tanstack/react-query";
 import { LoadingBlock, ErrorState, EmptyState } from "./States";
+import { getSafeErrorMessage } from "@/services/errorPresentation";
 
 interface QueryBoundaryProps<T> {
   query: UseQueryResult<T>;
@@ -19,7 +20,7 @@ interface QueryBoundaryProps<T> {
 export function QueryBoundary<T>({ query, isEmpty, emptyTitle, emptyDescription, children }: QueryBoundaryProps<T>) {
   if (query.isPending) return <LoadingBlock />;
   if (query.isError) {
-    return <ErrorState description={(query.error as Error)?.message} onRetry={() => query.refetch()} />;
+    return <ErrorState description={getSafeErrorMessage(query.error)} onRetry={() => query.refetch()} />;
   }
   if (isEmpty?.(query.data)) {
     return <EmptyState title={emptyTitle ?? "표시할 내용이 없습니다"} description={emptyDescription} />;

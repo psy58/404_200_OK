@@ -29,6 +29,7 @@ mocks/backend/*.json
 - unknown enum, extra field, 잘못된 날짜, 중복 checklist ID, 수량 불변조건 fail-closed
 - DTO snake_case를 presentation camelCase로 한 곳에서 변환
 - session 응답이 완전한 user·school·Assignment·sessionEpoch context 제공
+- Assignment 전환이 session version을 증가시키고 같은 idempotency key replay에서 중복 증가하지 않음
 - contract/home/task/search fixture 간 context 불일치 시 시작 실패
 - 다른 school context 거부
 - Assignment 전환 뒤 이전 데이터·cache 분리

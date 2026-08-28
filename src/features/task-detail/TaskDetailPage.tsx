@@ -14,27 +14,32 @@ import { EvidenceChain } from "./EvidenceChain";
 import { PreviousTimeline } from "./PreviousTimeline";
 import { ChevronRightIcon, FileIcon } from "@/lib/icons";
 import { daysUntil, formatFull } from "@/lib/dates";
+import { getSafeErrorMessage } from "@/services/errorPresentation";
 
 export function TaskDetailPage() {
   const { taskId = "" } = useParams();
-  const { activeAssignmentId } = useAssignment();
+  const { context, user } = useAssignment();
   const { open } = useOverlay();
 
   const tasksQuery = useQuery({
-    queryKey: qk.tasks(activeAssignmentId ?? ""),
-    queryFn: ({ signal }) => getTasks(activeAssignmentId ?? "", signal),
-    enabled: !!activeAssignmentId,
+    queryKey: context ? qk.tasks(context) : ["tasks", "disabled"],
+    queryFn: ({ signal }) => getTasks(context!, signal),
+    enabled: !!context,
   });
   const detailQuery = useQuery({
-    queryKey: qk.taskDetail(taskId),
-    queryFn: ({ signal }) => getTaskDetail(taskId, signal),
-    enabled: !!taskId,
+    queryKey: context ? qk.taskDetail(context, taskId) : ["task-detail", "disabled", taskId],
+    queryFn: ({ signal }) => getTaskDetail(context!, taskId, signal),
+    enabled: !!context && !!taskId,
   });
-  const notesQuery = useQuery({ queryKey: qk.notes(), queryFn: ({ signal }) => getExperienceNotes(signal) });
+  const notesQuery = useQuery({
+    queryKey: context ? qk.notes(context) : ["notes", "disabled"],
+    queryFn: ({ signal }) => getExperienceNotes(context!, user?.displayName ?? "", signal),
+    enabled: !!context,
+  });
 
   if (tasksQuery.isPending || detailQuery.isPending) return <LoadingBlock label="업무 상세를 불러오는 중" />;
-  if (tasksQuery.isError) return <ErrorState description={(tasksQuery.error as Error).message} onRetry={() => tasksQuery.refetch()} />;
-  if (detailQuery.isError) return <ErrorState description={(detailQuery.error as Error).message} onRetry={() => detailQuery.refetch()} />;
+  if (tasksQuery.isError) return <ErrorState description={getSafeErrorMessage(tasksQuery.error)} onRetry={() => tasksQuery.refetch()} />;
+  if (detailQuery.isError) return <ErrorState description={getSafeErrorMessage(detailQuery.error)} onRetry={() => detailQuery.refetch()} />;
 
   const task = tasksQuery.data.find((t) => t.id === taskId);
   if (!task) {

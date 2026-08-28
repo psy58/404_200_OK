@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { getTasks } from "@/services/tasksService";
-import { getFeed } from "@/services/feedService";
 import { getExperienceNotes } from "@/services/notesService";
 import { getDocuments } from "@/services/documentsService";
 import { useAssignment } from "@/state/AssignmentContext";
@@ -16,6 +15,7 @@ import { SourceTag } from "@/components/ui/SourceTag";
 import { LoadingBlock, ErrorState } from "@/components/ui/States";
 import { InfoIcon, LinkIcon } from "@/lib/icons";
 import { daysUntil, formatFull } from "@/lib/dates";
+import { getSafeErrorMessage } from "@/services/errorPresentation";
 
 const VISIBILITY_LABEL: Record<string, { label: string; tone: string }> = {
   private: { label: "나만 보기", tone: "" },
@@ -24,22 +24,29 @@ const VISIBILITY_LABEL: Record<string, { label: string; tone: string }> = {
 };
 
 export function HomePage() {
-  const { activeAssignment, activeAssignmentId } = useAssignment();
+  const { activeAssignment, context, user } = useAssignment();
   const { open } = useOverlay();
 
   const tasksQuery = useQuery({
-    queryKey: qk.tasks(activeAssignmentId ?? ""),
-    queryFn: ({ signal }) => getTasks(activeAssignmentId ?? "", signal),
-    enabled: !!activeAssignmentId,
+    queryKey: context ? qk.tasks(context) : ["tasks", "disabled"],
+    queryFn: ({ signal }) => getTasks(context!, signal),
+    enabled: !!context,
   });
-  const feedQuery = useQuery({ queryKey: qk.feed(), queryFn: ({ signal }) => getFeed(signal) });
-  const notesQuery = useQuery({ queryKey: qk.notes(), queryFn: ({ signal }) => getExperienceNotes(signal) });
-  const docsQuery = useQuery({ queryKey: qk.documents(), queryFn: ({ signal }) => getDocuments(signal) });
+  const notesQuery = useQuery({
+    queryKey: context ? qk.notes(context) : ["notes", "disabled"],
+    queryFn: ({ signal }) => getExperienceNotes(context!, user?.displayName ?? "", signal),
+    enabled: !!context,
+  });
+  const docsQuery = useQuery({
+    queryKey: context ? qk.documents(context) : ["documents", "disabled"],
+    queryFn: ({ signal }) => getDocuments(context!, signal),
+    enabled: !!context,
+  });
 
-  if (!activeAssignmentId) return <LoadingBlock label="담당 업무를 불러오는 중" />;
+  if (!context) return <LoadingBlock label="담당 업무를 불러오는 중" />;
   if (tasksQuery.isPending) return <LoadingBlock label="내 업무를 불러오는 중" />;
   if (tasksQuery.isError) {
-    return <ErrorState description={(tasksQuery.error as Error).message} onRetry={() => tasksQuery.refetch()} />;
+    return <ErrorState description={getSafeErrorMessage(tasksQuery.error)} onRetry={() => tasksQuery.refetch()} />;
   }
 
   const tasks = tasksQuery.data;
@@ -91,7 +98,7 @@ export function HomePage() {
         <KpiCard
           accent="#0B4171"
           title="새로 온 관련 공문"
-          value={feedQuery.data?.length ?? 0}
+          value={docsQuery.data?.length ?? 0}
           meta="업무에 자동 연결됨"
           linkLabel="목록 보기"
           to="/docs"
@@ -197,19 +204,19 @@ export function HomePage() {
               </span>
               <Chip tone="navy">자동 분류</Chip>
             </div>
-            <QueryBoundary query={feedQuery} isEmpty={(d) => d.length === 0} emptyTitle="새로 온 공문이 없습니다">
+            <QueryBoundary query={docsQuery} isEmpty={(d) => d.length === 0} emptyTitle="새로 온 공문이 없습니다">
               {(items) =>
-                items.map((f) => (
+                items.slice(0, 3).map((f) => (
                   <Link className="dfeed" to={f.relatedTaskId ? `/tasks/${f.relatedTaskId}` : "/docs"} key={f.id}>
                     <span className="stamp">접수</span>
                     <span style={{ minWidth: 0 }}>
                       <span className="dt">{f.title}</span>
                       <span className="dm">
-                        {f.issuer} · {f.receivedAt.slice(5).replace("-", ".")} 접수
+                        {f.documentNumber} · {f.issuedAt.slice(5).replace("-", ".")} 시행
                       </span>
                       <span className="dl">
                         <LinkIcon />
-                        {f.hint}
+                        {f.relatedTaskTitle}
                       </span>
                     </span>
                   </Link>

@@ -1,19 +1,46 @@
-import { adaptTaskDetail, adaptTask } from "@/domain/adapters";
-import { RawTaskDetailSchema, RawTasksResponseSchema } from "@/domain/raw-schemas";
+import { MockApiError } from "@/api/mock-service.js";
+import type { RequestContext } from "@/api/ui-api-boundary-v2";
+import { adaptTask, adaptTaskDetail } from "@/domain/adapters";
 import type { TaskDetail, TaskInstance } from "@/domain/types";
-import { NotFoundIssue, fetchMock } from "./mockClient";
+import { getFrontendApiService } from "./apiClient";
+import { requestScope, runApiRequest } from "./requestExecution";
 
-export async function getTasks(assignmentId: string, signal?: AbortSignal): Promise<TaskInstance[]> {
-  const raw = await fetchMock("/mocks/backend/tasks.json", RawTasksResponseSchema, { signal });
-  return raw.items.filter((t) => t.assignment_id === assignmentId).map(adaptTask);
+export async function getTasks(context: RequestContext, signal?: AbortSignal): Promise<TaskInstance[]> {
+  return runApiRequest(requestScope(["tasks", context.sessionEpoch, context.assignmentId]), signal, async (requestSignal) => {
+    const api = await getFrontendApiService();
+    const home = await api.getHome(context, { signal: requestSignal });
+    const unique = new Map([...home.urgent, ...home.thisMonth, ...home.nextThirtyDays].map((task) => [task.id, task]));
+    return [...unique.values()].map((task) => adaptTask(task, context));
+  });
 }
 
-export async function getTaskDetail(taskId: string, signal?: AbortSignal): Promise<TaskDetail | null> {
+export async function getAnnualTasks(
+  context: RequestContext,
+  academicYear: number,
+  signal?: AbortSignal,
+): Promise<TaskInstance[]> {
+  return runApiRequest(requestScope(["annual", context.sessionEpoch, context.assignmentId, academicYear]), signal, async (requestSignal) => {
+    const api = await getFrontendApiService();
+    const annual = await api.getAnnualMap(context, {
+      filter: { academicYear: String(academicYear) },
+      signal: requestSignal,
+    });
+    return annual.items.map((task) => ({
+      ...adaptTask(task, context),
+      timelineMonthStart: task.monthStart,
+      timelineMonthEnd: task.monthEnd,
+    }));
+  });
+}
+
+export async function getTaskDetail(context: RequestContext, taskId: string, signal?: AbortSignal): Promise<TaskDetail | null> {
   try {
-    const raw = await fetchMock(`/mocks/backend/task-details/${taskId}.json`, RawTaskDetailSchema, { signal });
-    return adaptTaskDetail(raw);
-  } catch (err) {
-    if (err instanceof NotFoundIssue) return null;
-    throw err;
+    return await runApiRequest(requestScope(["task", context.sessionEpoch, context.assignmentId, taskId]), signal, async (requestSignal) => {
+      const api = await getFrontendApiService();
+      return adaptTaskDetail(await api.getTaskDetail(context, taskId, { signal: requestSignal }));
+    });
+  } catch (error) {
+    if (error instanceof MockApiError && error.status === 404) return null;
+    throw error;
   }
 }

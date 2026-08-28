@@ -7,6 +7,7 @@ import { QueryBoundary } from "@/components/ui/QueryBoundary";
 import { SourceTag } from "@/components/ui/SourceTag";
 import { SortIcon } from "@/lib/icons";
 import type { DocumentItem } from "@/domain/types";
+import { useAssignment } from "@/state/AssignmentContext";
 
 type FilterKey = "all" | "official" | "school_case" | "pending";
 type SortKey = "title" | "relatedTaskTitle" | "issuedAt";
@@ -28,7 +29,12 @@ export function DocumentsPage() {
   const [filter, setFilter] = useState<FilterKey>("all");
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({ key: "issuedAt", dir: "desc" });
   const { open } = useOverlay();
-  const query = useQuery({ queryKey: qk.documents(), queryFn: ({ signal }) => getDocuments(signal) });
+  const { context } = useAssignment();
+  const query = useQuery({
+    queryKey: context ? qk.documents(context) : ["documents", "disabled"],
+    queryFn: ({ signal }) => getDocuments(context!, signal),
+    enabled: !!context,
+  });
 
   const filtered = useMemo(() => {
     const items = query.data ?? [];

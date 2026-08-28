@@ -121,6 +121,16 @@ test("unknown Assignment selection is rejected without changing the session", as
   assert.equal((await api.getSession()).activeAssignmentId, "asg-science");
 });
 
+test("Assignment switch increments the session version and replays idempotently", async () => {
+  const api = await service();
+  const mutation = { expectedVersion: 1, idempotencyKey: "assignment-versioned-switch" };
+  const first = await api.setActiveAssignment("asg-gifted", mutation);
+  const replay = await api.setActiveAssignment("asg-gifted", mutation);
+  assert.equal(first.version, 2);
+  assert.equal(replay.version, 2);
+  assert.equal((await api.getSession()).version, 2);
+});
+
 test("stale checklist version returns 412", async () => {
   const api = await service();
   await assert.rejects(api.updateChecklist(api.getActiveContext(), {

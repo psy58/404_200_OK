@@ -1,19 +1,21 @@
-/**
- * MOCK_ONLY mutation used to exercise the optimistic-update / rollback UX
- * required by docs/01 §13 REL01-REL02 even though there is no server yet.
- * A small deterministic-looking failure rate lets TaskDetailPage demonstrate
- * the rollback path instead of only the happy path.
- */
-export class ChecklistSaveIssue extends Error {}
+import type { RequestContext } from "@/api/ui-api-boundary-v2";
+import { adaptTaskDetail } from "@/domain/adapters";
+import type { TaskDetail } from "@/domain/types";
+import { getFrontendApiService } from "./apiClient";
+import { createIdempotencyKey, requestScope, runApiRequest } from "./requestExecution";
 
-let attempt = 0;
-
-export async function toggleChecklistItemMockOnly(): Promise<{ ok: true }> {
-  attempt += 1;
-  await new Promise((r) => setTimeout(r, 260));
-  // Fails roughly one in six saves so the UI's failure/rollback path is reachable in a demo.
-  if (attempt % 6 === 0) {
-    throw new ChecklistSaveIssue("저장에 실패했습니다");
-  }
-  return { ok: true };
+export async function updateChecklistItem(
+  context: RequestContext,
+  input: { taskId: string; itemId: string; complete: boolean; expectedVersion: number },
+): Promise<TaskDetail> {
+  return runApiRequest(requestScope(["checklist", context.sessionEpoch, context.assignmentId, input.taskId]), undefined, async (signal) => {
+    const api = await getFrontendApiService();
+    const detail = adaptTaskDetail(await api.updateChecklist(context, {
+      ...input,
+      idempotencyKey: createIdempotencyKey("checklist-update"),
+      signal,
+    }));
+    if (!detail) throw new Error("체크리스트 응답에 업무 정보가 없습니다.");
+    return detail;
+  });
 }
