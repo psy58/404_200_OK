@@ -135,7 +135,7 @@ export function ReviewModal({ onClose }: { onClose: () => void }) {
     <Modal
       titleId="review-modal-title"
       wide
-      eyebrow="F11 · 인수인계 전 메모 검토"
+      eyebrow="인수인계 전 메모 검토"
       title="1년치 메모 검토"
       description="기록할 때는 자유롭게, 전달할 때는 신중하게. 내가 작성한 메모만 수정하거나 삭제할 수 있습니다."
       onClose={onClose}

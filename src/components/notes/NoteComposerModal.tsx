@@ -56,11 +56,12 @@ export function NoteComposerModal({ taskId, onClose }: { taskId?: string; onClos
   return (
     <Modal
       titleId="note-modal-title"
-      eyebrow="경험 메모"
-      title="이번에 알게 된 것 기록하기"
-      description="한두 줄이면 충분합니다. 연말에 모아서 인수인계 자료로 정리합니다."
+      eyebrow="업무에 연결해 공유"
+      title="질문·감·자료 남기기"
+      description="질문·노하우·자료를 선택한 업무와 함께 나눕니다."
+      wide
       onClose={onClose}
-      footer={<><button className="btn btn-quiet" onClick={onClose}>취소</button><button className="btn btn-primary" disabled={!body.trim() || !task || mutation.isPending} onClick={() => mutation.mutate()}>{mutation.isPending ? "저장 중…" : "메모 저장"}</button></>}
+      footer={<><button className="btn btn-quiet" onClick={onClose}>취소</button><button className="btn btn-primary" disabled={!body.trim() || !task || mutation.isPending} onClick={() => mutation.mutate()}>{mutation.isPending ? "연결 중…" : "업무에 연결해 공유"}</button></>}
     >
       {!taskId && (
         <label className="eyebrow">관련 업무

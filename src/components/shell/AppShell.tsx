@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet, useMatch, useNavigate } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { useOverlay } from "@/state/OverlayContext";
@@ -11,6 +11,7 @@ const ROUTE_SHORTCUTS: Record<string, string> = { h: "/home", m: "/map", d: "/do
 
 // Upload/analysis, notifications and AI stay out of the initial shell bundle.
 const AssignmentModal = lazy(() => import("./AssignmentModal").then((module) => ({ default: module.AssignmentModal })));
+const NewAssignmentModal = lazy(() => import("./NewAssignmentModal").then((module) => ({ default: module.NewAssignmentModal })));
 const NotificationPanel = lazy(() => import("./NotificationPanel").then((module) => ({ default: module.NotificationPanel })));
 const AssistantPanel = lazy(() => import("./AssistantPanel").then((module) => ({ default: module.AssistantPanel })));
 const UploadModal = lazy(() => import("@/components/upload/UploadModal").then((module) => ({ default: module.UploadModal })));
@@ -19,9 +20,11 @@ const ReviewModal = lazy(() => import("@/components/notes/ReviewModal").then((mo
 
 export function AppShell() {
   const [navOpen, setNavOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem("gam-sidebar-collapsed") === "true");
   const { overlay, open, close } = useOverlay();
   const { status, errorMessage } = useAssignment();
   const navigate = useNavigate();
+  const taskMatch = useMatch("/tasks/:taskId");
   const gPressed = useRef(false);
   const gTimer = useRef<ReturnType<typeof setTimeout>>();
 
@@ -29,6 +32,10 @@ export function AppShell() {
     document.body.classList.toggle("nav-on", navOpen);
     return () => document.body.classList.remove("nav-on");
   }, [navOpen]);
+
+  useEffect(() => {
+    localStorage.setItem("gam-sidebar-collapsed", String(sidebarCollapsed));
+  }, [sidebarCollapsed]);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -40,7 +47,11 @@ export function AppShell() {
       }
       if (e.key === "/" && !typing) {
         e.preventDefault();
-        document.getElementById("q")?.focus();
+        if (window.matchMedia("(max-width: 760px)").matches) {
+          document.getElementById("mobile-search-trigger")?.click();
+        } else {
+          document.getElementById("q")?.focus();
+        }
         return;
       }
       if (typing) return;
@@ -64,10 +75,10 @@ export function AppShell() {
   }, [close, navigate]);
 
   return (
-    <div className="app">
+    <div className={`app${sidebarCollapsed ? " side-collapsed" : ""}`}>
       <a className="skip-link" href="#view" onClick={() => document.getElementById("view")?.focus()}>본문으로 건너뛰기</a>
       <div className="side-scrim" onClick={() => setNavOpen(false)} />
-      <Sidebar onNavigate={() => setNavOpen(false)} />
+      <Sidebar collapsed={sidebarCollapsed} onNavigate={() => setNavOpen(false)} onToggleCollapse={() => setSidebarCollapsed((value) => !value)} />
       <div className="main">
         <Topbar navOpen={navOpen} onToggleNav={() => setNavOpen((value) => !value)} />
         <main className="view" id="view" tabIndex={-1}>
@@ -81,13 +92,14 @@ export function AppShell() {
         </main>
       </div>
 
-      <button className="fab" onClick={() => open("assistant")}>
+      <button className="fab" onClick={() => open("assistant", taskMatch?.params.taskId)}>
         <AssistantIcon />
-        업무 도우미
+        AI 감
       </button>
 
       <Suspense fallback={<span className="sr" role="status">기능 화면을 준비하는 중입니다.</span>}>
         {overlay?.kind === "assign" && <AssignmentModal onClose={close} />}
+        {overlay?.kind === "new-assignment" && <NewAssignmentModal onClose={close} onNext={() => open("upload")} />}
         {overlay?.kind === "notifications" && <NotificationPanel onClose={close} />}
         {overlay?.kind === "assistant" && <AssistantPanel taskId={overlay.taskId} onClose={close} />}
         {overlay?.kind === "upload" && <UploadModal onClose={close} />}

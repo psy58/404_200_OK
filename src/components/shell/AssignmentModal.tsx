@@ -2,31 +2,26 @@ import { useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { useAssignment } from "@/state/AssignmentContext";
 import { useToast } from "@/state/ToastContext";
+import { useOverlay } from "@/state/OverlayContext";
 import { CheckIcon, InfoIcon } from "@/lib/icons";
 
-/**
- * F01 담당 업무 선택. Only server-allowed assignments are selectable;
- * "업무 등록 제안" is intentionally disabled because no backend contract
- * exists yet to accept a school-proposed task — see docs/01 §8.2.
- */
+/** F01 담당 업무 선택. 서버가 허용한 업무분장 중에서만 고를 수 있다. */
 export function AssignmentModal({ onClose }: { onClose: () => void }) {
   const { assignments, activeAssignmentId, setActiveAssignmentId, school, status, errorMessage } = useAssignment();
   const [pending, setPending] = useState(activeAssignmentId);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
+  const { open } = useOverlay();
 
   return (
     <Modal
       titleId="assign-modal-title"
       eyebrow={school ? `${school.name} · ${school.academicYear}학년도` : undefined}
       title="담당 업무 선택"
-      description="서버가 허용한 업무분장만 표시됩니다. 선택은 작업 맥락을 바꾸는 것이며 권한을 부여하지 않습니다."
+      description="지금 보고 싶은 담당 업무를 선택하세요."
       onClose={onClose}
       footer={
         <>
-          <button className="btn btn-quiet" disabled>
-            업무 등록 제안
-          </button>
           <button className="btn btn-quiet" onClick={onClose}>
             취소
           </button>
@@ -52,23 +47,31 @@ export function AssignmentModal({ onClose }: { onClose: () => void }) {
         </>
       }
     >
-      <div className="opt-grid">
-        {assignments.map((a) => (
+      <div className="assignment-grid">
+        {assignments.map((assignment) => (
           <button
-            key={a.id}
-            className="opt"
-            aria-pressed={pending === a.id}
-            onClick={() => setPending(a.id)}
+            key={assignment.id}
+            className="assignment-card"
+            aria-pressed={pending === assignment.id}
+            onClick={() => setPending(assignment.id)}
           >
-            <span className="tick">
-              <CheckIcon />
+            <span className="assignment-card-title">
+              <strong>{assignment.name}</strong>
+              {pending === assignment.id && <span className="assignment-check" aria-label="선택됨"><CheckIcon /></span>}
             </span>
-            <span className="ot">{a.name}</span>
-            <span className="om">
-              {a.note ?? a.activeFrom} · 업무 {a.taskCount}개
-            </span>
+            <span>{Number(assignment.activeFrom.slice(5, 7))}월부터 담당 · 업무 {assignment.taskCount}개</span>
           </button>
         ))}
+        <button
+          className="assignment-add-card"
+          onClick={() => {
+            onClose();
+            requestAnimationFrame(() => open("new-assignment"));
+          }}
+        >
+          <span className="assignment-add-icon" aria-hidden="true">+</span>
+          <span><strong>새로운 업무 추가</strong><small>새로 맡은 업무 등록</small></span>
+        </button>
       </div>
       {errorMessage && <p className="t-cap" role="alert" style={{ marginTop: 12 }}>{errorMessage}</p>}
       <div className="notice info" style={{ marginTop: 18 }}>

@@ -1,12 +1,13 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { getAnnualTasks } from "@/services/tasksService";
 import { useAssignment } from "@/state/AssignmentContext";
 import { qk } from "@/state/queryKeys";
 import { QueryBoundary } from "@/components/ui/QueryBoundary";
 import { formatShort, MONTHS } from "@/lib/dates";
 import type { TaskInstance, TaskStatus } from "@/domain/types";
+import { taskNavigationState, type TaskNavigationState } from "@/lib/taskNavigation";
 
 const STATUS_LABEL: Record<TaskStatus, string> = {
   in_progress: "진행중",
@@ -26,8 +27,17 @@ export function AnnualMapPage() {
   const { activeAssignment, context, school } = useAssignment();
   const navigate = useNavigate();
   const academicYear = school?.academicYear ?? new Date().getFullYear();
-  const [statusFilter, setStatusFilter] = useState<TaskStatus | "all">("all");
-  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const restoreState = location.state as { restore?: TaskNavigationState } | null;
+  const [statusFilter, setStatusFilter] = useState<TaskStatus | "all">((restoreState?.restore?.filters?.statusFilter as TaskStatus | "all") ?? "all");
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(restoreState?.restore?.filters?.categoryFilter ?? searchParams.get("category"));
+  const focusTaskId = searchParams.get("focus");
+
+  useEffect(() => {
+    if (focusTaskId) document.getElementById(`task-${focusTaskId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    else if (restoreState?.restore?.scrollY) window.scrollTo({ top: restoreState.restore.scrollY, behavior: "auto" });
+  }, [focusTaskId, restoreState]);
 
   const tasksQuery = useQuery({
     queryKey: context ? qk.annual(context, academicYear) : ["annual", "disabled"],
@@ -61,9 +71,7 @@ export function AnnualMapPage() {
           <h1 className="t-display" style={{ marginTop: 9 }}>
             연간 업무 지도
           </h1>
-          <p className="sub">
-            3월부터 다음 해 2월까지의 흐름입니다. 막대 안 주황 점은 <b>전년도 담당자가 실제로 처리한 시점</b>입니다.
-          </p>
+          <p className="sub">3월부터 다음 해 2월까지의 업무 일정</p>
         </div>
       </div>
 
@@ -108,7 +116,7 @@ export function AnnualMapPage() {
                     style={{ left: `calc(230px + (100% - 230px) * ${(CURRENT_MONTH_INDEX + 0.9) / 12})` }}
                   />
                   {filtered.map((t) => (
-                    <MapRow key={t.id} task={t} onOpen={() => navigate(`/tasks/${t.id}`)} />
+                    <MapRow key={t.id} task={t} focused={focusTaskId === t.id} onOpen={() => navigate(`/tasks/${t.id}`, { state: taskNavigationState("/map", "연간 업무 지도", { statusFilter, categoryFilter }) })} />
                   ))}
                 </div>
               </div>
@@ -141,9 +149,9 @@ export function AnnualMapPage() {
               <span className="leg">
                 <span className="sw" style={{ background: "var(--gam)" }} />
                 <span>
-                  <span className="lt">전년도 실제 처리</span>
+                  <span className="lt">주황 점</span>
                   <br />
-                  <span className="lv">막대 내 주황 점</span>
+                  <span className="lv">작년 실제 처리일</span>
                 </span>
               </span>
             </div>
@@ -153,7 +161,7 @@ export function AnnualMapPage() {
 
       <div className="mlist" style={{ display: filtered.length ? undefined : "none" }}>
         {filtered.map((t) => (
-          <button className="mi" key={t.id} onClick={() => navigate(`/tasks/${t.id}`)}>
+          <button className="mi" key={t.id} onClick={() => navigate(`/tasks/${t.id}`, { state: taskNavigationState("/map", "연간 업무 지도", { statusFilter, categoryFilter }) })}>
             <span className="mt">{t.title}</span>
             <span className="mm">
               <span>준비 {formatShort(t.recommendedStartDate)}</span>
@@ -167,11 +175,11 @@ export function AnnualMapPage() {
   );
 }
 
-function MapRow({ task, onOpen }: { task: TaskInstance; onOpen: () => void }) {
+function MapRow({ task, focused, onOpen }: { task: TaskInstance; focused: boolean; onOpen: () => void }) {
   const start = task.timelineMonthStart + 2;
   const end = task.timelineMonthEnd + 3;
   return (
-    <div className="map-row">
+    <div className={`map-row${focused ? " focused" : ""}`} id={`task-${task.id}`}>
       <span className="map-label">
         {task.title}
         <span className="mm">

@@ -6,7 +6,7 @@ import { useAssignment } from "@/state/AssignmentContext";
 import { getSafeErrorMessage } from "@/services/errorPresentation";
 import { InfoIcon, FileIcon, UploadIcon } from "@/lib/icons";
 
-const STEPS = ["선택", "업로드", "서버 검사", "파싱", "분석", "검토 필요"] as const;
+const STEPS = ["선택", "업로드", "안전 확인", "내용 읽기", "분석", "검토"] as const;
 
 /** MVP P0 upload UI wired to the V2 gate; no client-side fake success. */
 export function UploadModal({ onClose }: { onClose: () => void }) {
@@ -34,7 +34,7 @@ export function UploadModal({ onClose }: { onClose: () => void }) {
     <Modal
       titleId="upload-modal-title"
       wide
-      eyebrow="MVP P0 · 파일 업로드·분석"
+      eyebrow="파일 업로드·분석"
       title="문서 업로드·분석"
       description="분석 결과는 사람이 승인하기 전까지 초안이며, 자동으로 확정 업무가 되지 않습니다."
       onClose={onClose}

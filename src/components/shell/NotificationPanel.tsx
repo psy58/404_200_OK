@@ -6,6 +6,23 @@ import { getNotifications } from "@/services/notificationsService";
 import { useAssignment } from "@/state/AssignmentContext";
 import { qk } from "@/state/queryKeys";
 import { AlertIcon, InfoIcon } from "@/lib/icons";
+import type { NotificationKind } from "@/domain/types";
+import { taskNavigationState } from "@/lib/taskNavigation";
+
+const KIND_BG: Record<NotificationKind, string> = {
+  due: "var(--danger-bg)",
+  prep: "var(--warn-bg)",
+  doc: "var(--navy-050)",
+  evidence_update: "var(--navy-050)",
+  analysis_complete: "var(--ok-bg)",
+};
+const KIND_FG: Record<NotificationKind, string> = {
+  due: "var(--danger-ink)",
+  prep: "var(--warn-ink)",
+  doc: "var(--navy-700)",
+  evidence_update: "var(--navy-700)",
+  analysis_complete: "var(--ok-ink)",
+};
 
 /** P1 notification UI, fail-closed until persistence/authz operations exist. */
 export function NotificationPanel({ onClose }: { onClose: () => void }) {
@@ -41,10 +58,13 @@ export function NotificationPanel({ onClose }: { onClose: () => void }) {
                 key={item.id}
                 className={`notif${item.isNew ? " new" : ""}`}
                 onClick={() => {
-                  if (item.relatedTaskId) { navigate(`/tasks/${item.relatedTaskId}`); onClose(); }
+                  if (item.relatedTaskId) {
+                    navigate(`/tasks/${item.relatedTaskId}`, { state: taskNavigationState("/home", "알림") });
+                    onClose();
+                  }
                 }}
               >
-                <span className="ni"><AlertIcon /></span>
+                <span className="ni" style={{ background: KIND_BG[item.kind], color: KIND_FG[item.kind] }}><AlertIcon /></span>
                 <span><span className="nt">{item.title}</span><span className="nm">{item.message}</span></span>
               </button>
             ))}

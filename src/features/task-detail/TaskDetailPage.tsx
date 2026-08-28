@@ -1,4 +1,5 @@
-import { Link, useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { getTaskDetail } from "@/services/tasksService";
 import { getExperienceNotes } from "@/services/notesService";
@@ -12,24 +13,41 @@ import { DateRail } from "@/components/ui/DateRail";
 import { ChecklistSection } from "./ChecklistSection";
 import { EvidenceChain } from "./EvidenceChain";
 import { PreviousTimeline } from "./PreviousTimeline";
+import { CommunityPostCard } from "@/features/notes/CommunityPostCard";
+import { COMMUNITY_POSTS } from "@/features/notes/communityData";
+import { useCommunityLinks } from "@/features/notes/communityLinks";
 import { ChevronRightIcon, FileIcon } from "@/lib/icons";
 import { daysUntil, formatFull } from "@/lib/dates";
 import { getSafeErrorMessage } from "@/services/errorPresentation";
+import type { TaskNavigationState } from "@/lib/taskNavigation";
 
 export function TaskDetailPage() {
   const { taskId = "" } = useParams();
-  const { context, user } = useAssignment();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { context: requestContext, user } = useAssignment();
   const { open } = useOverlay();
+  const linkedCommunityIds = useCommunityLinks();
+  const [showContextBar, setShowContextBar] = useState(false);
+  const navigationContext = location.state as TaskNavigationState | null;
+  const backTarget = navigationContext ?? { from: "/home", label: "내 업무", scrollY: 0 };
+
+  useEffect(() => {
+    const update = () => setShowContextBar(window.scrollY > 180);
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    return () => window.removeEventListener("scroll", update);
+  }, []);
 
   const detailQuery = useQuery({
-    queryKey: context ? qk.taskDetail(context, taskId) : ["task-detail", "disabled", taskId],
-    queryFn: ({ signal }) => getTaskDetail(context!, taskId, signal),
-    enabled: !!context && !!taskId,
+    queryKey: requestContext ? qk.taskDetail(requestContext, taskId) : ["task-detail", "disabled", taskId],
+    queryFn: ({ signal }) => getTaskDetail(requestContext!, taskId, signal),
+    enabled: !!requestContext && !!taskId,
   });
   const notesQuery = useQuery({
-    queryKey: context ? qk.notes(context) : ["notes", "disabled"],
-    queryFn: ({ signal }) => getExperienceNotes(context!, user?.displayName ?? "", signal),
-    enabled: !!context,
+    queryKey: requestContext ? qk.notes(requestContext) : ["notes", "disabled"],
+    queryFn: ({ signal }) => getExperienceNotes(requestContext!, user?.displayName ?? "", signal),
+    enabled: !!requestContext,
   });
 
   if (detailQuery.isPending) return <LoadingBlock label="업무 상세를 불러오는 중" />;
@@ -55,25 +73,37 @@ export function TaskDetailPage() {
   // annual-only tasks must not depend on the narrower home-list union.
   const task = detail.task;
   const taskNotes = (notesQuery.data ?? []).filter((n) => n.taskId === task.id);
+  const communityPosts = COMMUNITY_POSTS.filter((post) => post.taskId === task.id && linkedCommunityIds.includes(post.id));
 
   return (
     <div className="stack">
-      <Link className="btn btn-ghost btn-sm" to="/home" style={{ alignSelf: "flex-start", marginLeft: -10 }}>
-        <span style={{ transform: "rotate(180deg)", display: "flex" }}><ChevronRightIcon /></span> 내 업무 홈
-      </Link>
+      <div className="task-nav">
+        <button className="btn btn-ghost btn-sm" onClick={() => navigate(backTarget.from, { state: { restore: backTarget } })}>
+          <span className="back-arrow"><ChevronRightIcon /></span> {backTarget.label}로 돌아가기
+        </button>
+        <nav className="breadcrumb" aria-label="현재 위치">
+          <Link to="/">홈</Link><span>/</span><Link to={`/map?category=${encodeURIComponent(task.category)}`}>{task.category}</Link><span>/</span><strong>{task.title}</strong>
+        </nav>
+      </div>
 
       <div className="page-head">
         <div>
           <span className="eyebrow">{task.category}</span>
           <h1 className="t-display" style={{ marginTop: 9 }}>{task.title}</h1>
-          <p className="sub">{task.rationale || "이 업무에 대한 별도 참고 사항이 없습니다."}</p>
+          {task.rationale && (
+            <div className="analysis-summary">
+              <span className="analysis-label">AI 업무 분석</span>
+              <p>{task.rationale}</p>
+            </div>
+          )}
         </div>
         <div style={{ display: "flex", gap: 9 }}>
+          <Link className="btn btn-quiet" to={`/map?focus=${task.id}`}>연간 지도에서 보기</Link>
           <button className="btn btn-quiet" onClick={() => open("note", task.id)}>
             경험 메모 쓰기
           </button>
           <button className="btn btn-primary" onClick={() => open("assistant", task.id)}>
-            이 업무 도우미 열기
+            AI 감 열기
           </button>
         </div>
       </div>
@@ -127,7 +157,7 @@ export function TaskDetailPage() {
                       <span className="fn">{f.title}</span>
                       <span className="fm">{f.meta}</span>
                     </span>
-                    <button className="btn btn-quiet btn-sm" disabled title="원문 연결은 백엔드 계약 필요">
+                    <button className="btn btn-quiet btn-sm" disabled title="원문 보기는 준비 중입니다">
                       열기
                     </button>
                   </div>
@@ -135,15 +165,18 @@ export function TaskDetailPage() {
               )}
             </section>
 
-            <section className="card card-pad">
+            <section className="card card-pad same-task-community">
               <div className="card-head">
-                <span className="lead"><h2 className="t-h2">경험 메모</h2></span>
-                <button className="btn btn-ghost btn-sm" onClick={() => open("note", task.id)}>추가</button>
+                <span className="lead"><span className="orange-dot">🍊</span><h2 className="t-h2">같은 업무 선생님들의 감</h2></span>
+                <button className="btn btn-ghost btn-sm" onClick={() => open("note", task.id)}>질문·감·자료 공유</button>
               </div>
-              {taskNotes.length === 0 ? (
-                <p className="t-cap">아직 이 업무의 경험 메모가 없습니다. 지금 알게 된 것을 한 줄 남겨 두세요.</p>
+              <p className="t-cap community-intro">동료 교사의 팁·자료·질문</p>
+              {communityPosts.length === 0 && taskNotes.length === 0 ? (
+                <p className="t-cap">아직 이 업무에 연결된 감이 없습니다. 가장 먼저 한 줄을 남겨 주세요.</p>
               ) : (
-                taskNotes.map((n) => (
+                <div className="same-task-feed">
+                  {communityPosts.slice(0, 3).map((post) => <CommunityPostCard post={post} compact taskContext key={post.id} />)}
+                  {taskNotes.map((n) => (
                   <div className="mini-note" key={n.id}>
                     <span style={{ display: "flex", gap: 7 }}>
                       <SourceTag type="experience" />
@@ -151,11 +184,19 @@ export function TaskDetailPage() {
                     <p>{n.body}</p>
                     <span className="mf">{n.authorDisplay} · {n.academicYear}학년도</span>
                   </div>
-                ))
+                  ))}
+                </div>
               )}
             </section>
           </div>
       </div>
+      {showContextBar && (
+        <div className="task-context-bar">
+          <button className="btn btn-ghost btn-sm" onClick={() => navigate(backTarget.from, { state: { restore: backTarget } })}><span className="back-arrow"><ChevronRightIcon /></span>{backTarget.label}</button>
+          <strong>{task.title}</strong>
+          <Link className="btn btn-ghost btn-sm" to={`/map?focus=${task.id}`}>연간 지도에서 보기</Link>
+        </div>
+      )}
     </div>
   );
 }

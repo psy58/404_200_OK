@@ -55,8 +55,11 @@ export function ChecklistSection({ taskId, checklist }: { taskId: string; checkl
   return (
     <section className="card card-pad">
       <div className="card-head">
-        <span className="lead"><h2 className="t-h2">업무 체크리스트</h2><span className="chip navy num">{done}/{checklist.length}</span></span>
-        <span className="t-cap">체크 기록은 인수인계서에 자동 반영됩니다</span>
+        <span className="lead">
+          <h2 className="t-h2">업무 체크리스트</h2>
+          <span className="chip navy num">{done}/{checklist.length}</span>
+        </span>
+        <span className="t-cap">완료 기록은 인수인계 초안에 포함됩니다</span>
       </div>
       {checklist.map((item) => (
         <div className={`check${item.done ? " on" : ""}`} key={item.id}>

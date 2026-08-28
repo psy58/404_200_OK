@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
 
-export type OverlayKind = "assign" | "upload" | "note" | "review" | "notifications" | "assistant";
+export type OverlayKind = "assign" | "new-assignment" | "upload" | "note" | "review" | "notifications" | "assistant";
 
 interface OverlayState {
   kind: OverlayKind;

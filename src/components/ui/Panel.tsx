@@ -10,7 +10,7 @@ interface PanelProps {
   children: ReactNode;
 }
 
-/** Right-edge slide-in panel used for notifications and the assistant. */
+/** Right-edge slide-in panel used for notifications and AI 감. */
 export function Panel({ titleId, title, onClose, footer, children }: PanelProps) {
   const ref = useRef<HTMLDivElement>(null);
   useFocusTrap(ref, true);

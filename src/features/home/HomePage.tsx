@@ -86,6 +86,7 @@ export function HomePage() {
           meta={urgent ? `가장 급한 업무 D-${daysUntil(urgent.officialDueDate)}` : "진행 중인 업무 없음"}
           linkLabel="목록 보기"
           to="/home"
+          scrollTarget="in-progress-tasks"
         />
         <KpiCard
           accent="#F59E0B"
@@ -94,20 +95,22 @@ export function HomePage() {
           meta="전년도 준비 시점 기준"
           linkLabel="목록 보기"
           to="/home"
+          scrollTarget="upcoming-tasks"
         />
         <KpiCard
           accent="#0B4171"
           title="새로 온 관련 공문"
           value={docsQuery.data?.length ?? 0}
-          meta="업무에 자동 연결됨"
+          meta="관련 공문 확인"
           linkLabel="목록 보기"
-          to="/docs"
+          to="/home"
+          scrollTarget="related-documents"
         />
         <KpiCard
           accent="#10B981"
           title="올해 완료한 업무"
           value={doneCount}
-          meta="자동으로 기록됨"
+          meta="올해 처리 내역"
           linkLabel="인수인계서 보기"
           to="/handover"
           variant="right"
@@ -116,7 +119,7 @@ export function HomePage() {
 
       <div className="grid-main">
         <div className="stack" style={{ gap: 22 }}>
-          <section className="card card-pad">
+          <section className="card card-pad scroll-target" id="in-progress-tasks">
             <span className="sec-tag">이번 달 · 8월</span>
             <div className="card-head">
               <span className="lead">
@@ -134,7 +137,7 @@ export function HomePage() {
             )}
           </section>
 
-          <section className="card card-pad">
+          <section className="card card-pad scroll-target" id="upcoming-tasks">
             <span className="sec-tag">다음 · 9~10월</span>
             <div className="card-head">
               <span className="lead">
@@ -196,13 +199,13 @@ export function HomePage() {
         </div>
 
         <aside className="col-side">
-          <section className="card card-pad">
+          <section className="card card-pad scroll-target" id="related-documents">
             <div className="card-head">
               <span className="lead">
                 <span className="dot-m" style={{ background: "var(--navy-700)" }} />
                 <h2 className="t-h2">새로 온 관련 공문</h2>
               </span>
-              <Chip tone="navy">자동 분류</Chip>
+              <Chip tone="navy">관련 업무</Chip>
             </div>
             <QueryBoundary query={docsQuery} isEmpty={(d) => d.length === 0} emptyTitle="새로 온 공문이 없습니다">
               {(items) =>
@@ -289,7 +292,7 @@ export function HomePage() {
             <div className="notice flat" style={{ marginTop: 16 }}>
               <InfoIcon />
               <span>
-                기록은 인수인계서 초안으로 자동 축적됩니다. <strong>전달 여부는 연말 검토에서 직접 선택</strong>합니다.
+                인수인계에 포함할 내용은 <strong>연말 검토에서 직접 선택</strong>합니다.
               </span>
             </div>
             <Link className="btn btn-quiet btn-sm" style={{ width: "100%", marginTop: 14, textAlign: "center" }} to="/handover">

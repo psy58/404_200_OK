@@ -1,7 +1,8 @@
 import { SearchBox } from "./SearchBox";
 import { useOverlay } from "@/state/OverlayContext";
-import { BellIcon, MenuIcon, UploadIcon } from "@/lib/icons";
+import { BellIcon, UploadIcon } from "@/lib/icons";
 import { useAssignment } from "@/state/AssignmentContext";
+import gamPersimmon from "@/assets/brand/gam-persimmon-green.png";
 
 export function Topbar({ navOpen, onToggleNav }: { navOpen: boolean; onToggleNav: () => void }) {
   const { open } = useOverlay();
@@ -12,19 +13,19 @@ export function Topbar({ navOpen, onToggleNav }: { navOpen: boolean; onToggleNav
   return (
     <header className="topbar">
       <button
-        className="hamb"
+        className="hamb gam-menu-toggle"
         id="hamb"
-        aria-label={navOpen ? "메뉴 닫기" : "메뉴 열기"}
+        type="button"
+        aria-label={navOpen ? "사이드바 닫기" : "사이드바 열기"}
         aria-expanded={navOpen}
         aria-controls="primary-navigation"
         onClick={onToggleNav}
       >
-        <MenuIcon />
+        <img src={gamPersimmon} alt="" className="gam-menu-toggle-icon" />
       </button>
       <span className="date-now num">
         {now}
       </span>
-
       <SearchBox />
 
       <div className="top-right">
@@ -34,10 +35,11 @@ export function Topbar({ navOpen, onToggleNav }: { navOpen: boolean; onToggleNav
         </button>
         <button className="icon-btn" aria-label="알림" onClick={() => open("notifications")}>
           <BellIcon />
+          <span className="dot" />
         </button>
         <button className="who">
           <span className="ava">{initial}</span>
-          <span>
+          <span className="who-copy">
             <span className="n">{user?.displayName ?? "사용자 확인 중"}</span>
             <span className="r">{user?.roleLabel ?? "서버 세션 확인"}</span>
           </span>
