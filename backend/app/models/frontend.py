@@ -170,3 +170,50 @@ class Notification(BaseModel):
 
 class NotificationsResponse(BaseModel):
     items: list[Notification]
+
+
+# --- 저장(변경) 요청·응답 ------------------------------------------------------
+
+
+class TaskCreateRequest(BaseModel):
+    title: str = Field(min_length=1, max_length=120)
+    start_date: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    due_date: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    category: str | None = Field(default=None, max_length=20)
+    memo: str | None = Field(default=None, max_length=500)
+
+
+class ChecklistToggleRequest(BaseModel):
+    done: bool
+
+
+class NoteCreateRequest(BaseModel):
+    task_id: str | None = None
+    visibility: Literal["private", "handover", "organization"] = "private"
+    body: str = Field(min_length=1, max_length=4000)
+
+
+class NotificationsReadRequest(BaseModel):
+    """비우면(또는 all=true) 전부 읽음."""
+
+    ids: list[str] = Field(default_factory=list)
+    all: bool = False
+
+
+class NotificationsReadResponse(BaseModel):
+    marked: int
+
+
+class UploadRecord(BaseModel):
+    id: str
+    filename: str
+    size: int
+    uploaded_at: str
+    status: Literal["received"] = "received"
+    note: str = Field(
+        description="이 파일이 다음에 어떻게 처리되는지에 대한 정직한 설명."
+    )
+
+
+class UploadsResponse(BaseModel):
+    items: list[UploadRecord]

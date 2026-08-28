@@ -1,22 +1,25 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { toggleChecklistItemMockOnly } from "@/services/checklistService";
+import { toggleChecklistItem } from "@/services/checklistService";
 import { useToast } from "@/state/ToastContext";
 import { qk } from "@/state/queryKeys";
 import { CheckIcon } from "@/lib/icons";
 import type { ChecklistItem, TaskDetail } from "@/domain/types";
 
 /**
- * F07 업무 체크리스트. Optimistic toggle with rollback on failure — see
- * services/checklistService.ts. Persistence is MOCK_ONLY: a page reload
- * will not keep the change (BACKEND_CONTRACT_REQUIRED for real storage).
+ * F07 업무 체크리스트 — 백엔드에 저장된다(새로고침·재시작에도 유지).
+ * 낙관적 갱신 후 실패하면 되돌리고, 성공하면 서버가 준 상세로 맞춘 뒤
+ * 목록의 n/m 카운트도 새로 고친다.
  */
 export function ChecklistSection({ taskId, checklist }: { taskId: string; checklist: ChecklistItem[] }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const done = checklist.filter((c) => c.done).length;
 
-  const mutation = useMutation<{ ok: true }, Error, string, { previous?: TaskDetail }>({
-    mutationFn: () => toggleChecklistItemMockOnly(),
+  const mutation = useMutation<TaskDetail, Error, string, { previous?: TaskDetail }>({
+    mutationFn: (itemId: string) => {
+      const target = checklist.find((c) => c.id === itemId);
+      return toggleChecklistItem(taskId, itemId, !(target?.done ?? false));
+    },
     onMutate: async (itemId: string) => {
       await queryClient.cancelQueries({ queryKey: qk.taskDetail(taskId) });
       const previous = queryClient.getQueryData<TaskDetail>(qk.taskDetail(taskId));
@@ -28,13 +31,12 @@ export function ChecklistSection({ taskId, checklist }: { taskId: string; checkl
       }
       return { previous };
     },
+    onSuccess: (detail) => {
+      // 서버가 준 상세가 저장된 진실이다. 목록의 n/m·상태도 바뀌므로 새로 고친다.
+      queryClient.setQueryData(qk.taskDetail(taskId), detail);
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    },
     onError: (_err, _itemId, context) => {
-      // Roll back to the pre-mutation cache. We deliberately do NOT
-      // invalidate/refetch on success: the backing fixture is a static
-      // JSON file with no real persistence, so a refetch would silently
-      // discard the optimistic change and make the checklist look broken.
-      // The optimistic cache IS the session's source of truth until a real
-      // backend (BACKEND_CONTRACT_REQUIRED) replaces this mock.
       if (context?.previous) queryClient.setQueryData(qk.taskDetail(taskId), context.previous);
       toast("저장에 실패했습니다. 이전 상태로 되돌렸습니다.");
     },
@@ -47,7 +49,7 @@ export function ChecklistSection({ taskId, checklist }: { taskId: string; checkl
           <h2 className="t-h2">업무 체크리스트</h2>
           <span className="chip navy num">{done}/{checklist.length}</span>
         </span>
-        <span className="t-cap">체크 기록은 인수인계서에 자동 반영됩니다</span>
+        <span className="t-cap">체크는 서버에 저장되어 새로고침해도 유지됩니다</span>
       </div>
       {checklist.map((c) => (
         <div className={`check${c.done ? " on" : ""}`} key={c.id}>

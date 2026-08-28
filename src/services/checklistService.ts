@@ -1,19 +1,21 @@
+import { adaptTaskDetail } from "@/domain/adapters";
+import { RawTaskDetailSchema } from "@/domain/raw-schemas";
+import type { TaskDetail } from "@/domain/types";
+import { postApi } from "./mockClient";
+
 /**
- * MOCK_ONLY mutation used to exercise the optimistic-update / rollback UX
- * required by docs/01 §13 REL01-REL02 even though there is no server yet.
- * A small deterministic-looking failure rate lets TaskDetailPage demonstrate
- * the rollback path instead of only the happy path.
+ * F07 체크리스트 저장 — 백엔드 data/user_state.json 에 남는다.
+ * 새로고침·재시작해도 유지된다. 응답은 저장 후의 업무 상세 전체다.
  */
-export class ChecklistSaveIssue extends Error {}
-
-let attempt = 0;
-
-export async function toggleChecklistItemMockOnly(): Promise<{ ok: true }> {
-  attempt += 1;
-  await new Promise((r) => setTimeout(r, 260));
-  // Fails roughly one in six saves so the UI's failure/rollback path is reachable in a demo.
-  if (attempt % 6 === 0) {
-    throw new ChecklistSaveIssue("저장에 실패했습니다");
-  }
-  return { ok: true };
+export async function toggleChecklistItem(
+  taskId: string,
+  itemId: string,
+  done: boolean,
+): Promise<TaskDetail> {
+  const raw = await postApi(
+    `/api/frontend/task-details/${encodeURIComponent(taskId)}/checklist/${encodeURIComponent(itemId)}`,
+    { done },
+    RawTaskDetailSchema,
+  );
+  return adaptTaskDetail(raw);
 }

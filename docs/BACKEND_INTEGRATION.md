@@ -45,10 +45,11 @@ python -m venv .venv
 |---|---|
 | AssistantPanel (F14 AI Q&A) | **연결됨** — 패널이 `POST /api/v1/query` 를 호출한다(`src/services/assistantService.ts`). `npm run dev:backend` 에서 실제 답변·근거·진행 흐름이 나오고, mock 모드에서는 연결 안내 오류가 뜬다 |
 | SearchBox 서버 검색 | `/api/v1/query` 의 검색이 대신함. 클라이언트 필터로도 당장은 충분 |
-| 체크리스트 저장 | 미구현 — `POST /api/v1/workflows/{id}/steps/{step_id}/complete` 가 준비돼 있으니 task-detail 연동 시 교체 |
-| 경험 노트 저장 | 미구현 (빈 목록으로 정직하게 응답) |
-| 알림 읽음 영속화 | 미구현 |
-| 업로드 | 미구현 |
+| 체크리스트 저장 | **연결됨** — `POST /api/frontend/task-details/{id}/checklist/{item}` · data/user_state.json 에 남는다 |
+| 경험 노트 저장 | **연결됨** — `POST /api/frontend/experience-notes` |
+| 알림 읽음 영속화 | **연결됨** — `POST /api/frontend/notifications/read` (id가 업무에 붙어 있어 재계산에도 유지) |
+| 업로드 | **연결됨(저장까지)** — `POST /api/frontend/uploads` → data/uploads/. 분석·색인은 인제스트 실행 때 |
+| 업무 카드 직접 추가 | **연결됨** — `POST /api/frontend/tasks` · 홈의 "새 업무 추가" 버튼 |
 
 ## 근거 법령 (공문 → 매뉴얼 → 법령 연결)
 

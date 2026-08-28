@@ -21,7 +21,7 @@ from ..errors import not_found
 from ..ingest import relations
 from ..models import frontend as dto
 from ..rag import doctype, timeline
-from . import statute_service
+from . import state_store, statute_service
 
 ASSIGNMENT_ID = "sci"  # 이 말뭉치는 전부 과학·정보 담당 문서다
 
@@ -45,6 +45,11 @@ def _school() -> dto.School:
 
 
 PROJECTED_PREFIX = "wf26_"  # 작년 업무에서 투영한 올해 업무의 id 접두어
+CUSTOM_PREFIX = "cust_"  # 담당자가 직접 추가한 업무의 id 접두어
+
+# 직접 추가한 업무의 기본 단계. 작년 기록이 없으므로 흔한 흐름을 기본으로 두고,
+# 진행은 체크리스트 확인으로 담당자가 직접 남긴다.
+CUSTOM_STAGES = ["계획 수립", "신청·접수", "운영", "지출·정산", "결과 보고"]
 
 FEED_LIMIT = 12
 DOCUMENT_LIMIT = 60
@@ -173,9 +178,17 @@ def _workflow_dates(workflow: dict) -> tuple[str, str]:
     return dates[0], dates[-1]
 
 
+def _step_done(step: dict, overlay: dict[str, bool]) -> bool:
+    """단계 완료 여부. 문서에서 온 상태 위에 담당자의 손 확인을 덮는다."""
+    if step["step_id"] in overlay:
+        return overlay[step["step_id"]]
+    return step["status"] == "completed"
+
+
 def _to_task(workflow: dict) -> dto.Task:
     steps = workflow["steps"]
-    done = sum(1 for step in steps if step["status"] == "completed")
+    overlay = state_store.checklist_overlay(workflow["workflow_id"])
+    done = sum(1 for step in steps if _step_done(step, overlay))
     first, last = _workflow_dates(workflow)
     current = next((s for s in steps if s["status"] == "current"), None)
 
@@ -233,8 +246,13 @@ def _project_task(previous: dict) -> dto.Task:
     status = "upcoming" if start <= (_today() + timedelta(days=14)).isoformat() else "planned"
 
     steps = previous["steps"]
+    task_id = PROJECTED_PREFIX + previous["workflow_id"].removeprefix("wf_")
+    overlay = state_store.checklist_overlay(task_id)
+    done = sum(1 for value in overlay.values() if value)
+    if done:  # 담당자가 확인을 시작했으면 더는 '예정'이 아니다
+        status = "complete" if done == len(steps) else "in_progress"
     return dto.Task(
-        id=PROJECTED_PREFIX + previous["workflow_id"].removeprefix("wf_"),
+        id=task_id,
         assignment_id=ASSIGNMENT_ID,
         title=f"{year}년 {previous['business_name']}",
         category=_TEMPLATE_CATEGORY.get(previous.get("template_id", ""), "일반"),
@@ -242,7 +260,7 @@ def _project_task(previous: dict) -> dto.Task:
         recommended_start_date=start,
         official_due_date=due,
         previous_actual_date=previous.get("updated_at") or last,  # 작년 실제 처리일
-        checklist_done=0,
+        checklist_done=done,
         checklist_total=len(steps),
         timeline_month_start=_month_index(start),
         timeline_month_end=max(_month_index(start), _month_index(due)),
@@ -251,6 +269,61 @@ def _project_task(previous: dict) -> dto.Task:
             f"올해 문서는 아직 없다 — 작년 흐름을 근거로 한 권장 일정이다."
         ),
     )
+
+
+def _custom_task_status(record: dict, done: int, total: int) -> str:
+    if total and done == total:
+        return "complete"
+    if done:
+        return "in_progress"
+    start = record.get("start_date") or _today().isoformat()
+    if start <= (_today() + timedelta(days=14)).isoformat():
+        return "upcoming"
+    return "planned"
+
+
+def _custom_to_task(record: dict) -> dto.Task:
+    overlay = state_store.checklist_overlay(record["id"])
+    done = sum(1 for value in overlay.values() if value)
+    total = len(CUSTOM_STAGES)
+    start = record.get("start_date") or _today().isoformat()
+    due = record.get("due_date") or start
+    return dto.Task(
+        id=record["id"],
+        assignment_id=ASSIGNMENT_ID,
+        title=record["title"],
+        category=record.get("category") or "직접 추가",
+        status=_custom_task_status(record, done, total),
+        recommended_start_date=start,
+        official_due_date=due,
+        # 작년 기록이 없다. 화면의 "작년 처리" 칸이 날짜를 요구해 시작일을 넣는다.
+        previous_actual_date=start,
+        checklist_done=done,
+        checklist_total=total,
+        timeline_month_start=_month_index(start),
+        timeline_month_end=max(_month_index(start), _month_index(due)),
+        rationale=record.get("memo") or "담당자가 직접 추가한 업무다. 작년 기록 없이 시작한다.",
+    )
+
+
+def create_custom_task(
+    title: str,
+    start_date: str | None = None,
+    due_date: str | None = None,
+    category: str | None = None,
+    memo: str | None = None,
+) -> dto.Task:
+    saved = state_store.add_custom_task(
+        {
+            "title": title.strip(),
+            "start_date": start_date,
+            "due_date": due_date,
+            "category": category,
+            "memo": memo,
+            "created_at": _today().isoformat(),
+        }
+    )
+    return _custom_to_task(saved)
 
 
 def tasks() -> dto.TasksResponse:
@@ -273,6 +346,7 @@ def tasks() -> dto.TasksResponse:
         elif previous:
             items.append(_project_task(previous))
 
+    items.extend(_custom_to_task(record) for record in state_store.custom_tasks())
     items.sort(key=lambda t: t.recommended_start_date)
     return dto.TasksResponse(items=items)
 
@@ -281,6 +355,7 @@ def tasks() -> dto.TasksResponse:
 
 
 def _checklist(workflow: dict) -> list[dto.ChecklistItem]:
+    overlay = state_store.checklist_overlay(workflow["workflow_id"])
     items = []
     for step in workflow["steps"]:
         if step.get("completed_at"):
@@ -294,7 +369,7 @@ def _checklist(workflow: dict) -> list[dto.ChecklistItem]:
                 id=step["step_id"],
                 text=step["name"],
                 note=note,
-                done=step["status"] == "completed",
+                done=_step_done(step, overlay),
             )
         )
     return items
@@ -317,11 +392,13 @@ def _sibling(store: _Store, workflow: dict, year: int) -> dict | None:
     return _series(store).get(workflow["business_name"], {}).get(year)
 
 
-def _projected_checklist(previous: dict) -> list[dto.ChecklistItem]:
+def _projected_checklist(task_id: str, previous: dict) -> list[dto.ChecklistItem]:
     """투영 업무의 체크리스트. 작년과 같은 단계, 전부 미완료.
 
     첫 단계를 '지금 할 차례'로 두고, 작년에 언제 했는지를 메모로 붙인다.
+    담당자가 확인한 항목(state_store)은 그 위에 덮인다.
     """
+    overlay = state_store.checklist_overlay(task_id)
     items = []
     for index, step in enumerate(previous["steps"]):
         note = f"작년 {step['completed_at']} 처리" if step.get("completed_at") else ""
@@ -330,13 +407,44 @@ def _projected_checklist(previous: dict) -> list[dto.ChecklistItem]:
                 id=step["step_id"],
                 text=step["name"],
                 note=("지금 할 차례 · " + note).rstrip(" ·") if index == 0 else note,
-                done=False,
+                done=overlay.get(step["step_id"], False),
             )
         )
     return items
 
 
+def _custom_task_detail(task_id: str) -> dto.TaskDetail:
+    record = next(
+        (r for r in state_store.custom_tasks() if r["id"] == task_id), None
+    )
+    if record is None:
+        raise not_found("task_not_found", f"업무 {task_id!r}를 찾을 수 없습니다.")
+
+    overlay = state_store.checklist_overlay(task_id)
+    checklist = [
+        dto.ChecklistItem(
+            id=str(index),
+            text=stage,
+            note="지금 할 차례" if index == 1 and not overlay.get("1") else "",
+            done=overlay.get(str(index), False),
+        )
+        for index, stage in enumerate(CUSTOM_STAGES, start=1)
+    ]
+    return dto.TaskDetail(
+        task_id=task_id,
+        checklist=checklist,
+        evidence_chain=[],
+        previous_timeline=[],
+        related_forms=[],
+        guideline_change_notice=(
+            "담당자가 직접 추가한 업무입니다. 관련 공문이 들어오면 근거가 여기에 쌓입니다."
+        ),
+    )
+
+
 def task_detail(task_id: str) -> dto.TaskDetail:
+    if task_id.startswith(CUSTOM_PREFIX):
+        return _custom_task_detail(task_id)
     store = _store.ensure()
     year = _academic_year(_today())
 
@@ -417,7 +525,9 @@ def task_detail(task_id: str) -> dto.TaskDetail:
     seen: set[str] = set()
     forms = [f for f in forms if not (f.title in seen or seen.add(f.title))][:6]
 
-    checklist = _projected_checklist(workflow) if projected else _checklist(workflow)
+    checklist = (
+        _projected_checklist(task_id, workflow) if projected else _checklist(workflow)
+    )
     notice = None
     if projected:
         first, last = _workflow_dates(workflow)
@@ -525,9 +635,40 @@ def documents() -> dto.DocumentsResponse:
 # --- notes / notifications ---------------------------------------------------
 
 
+def _note_dto(note: dict) -> dto.ExperienceNote:
+    return dto.ExperienceNote(
+        id=note["id"],
+        task_id=note.get("task_id") or "",
+        task_title=note.get("task_title") or "일반 메모",
+        academic_year=note.get("academic_year") or _academic_year(_today()),
+        author_display="나",
+        is_mine=True,
+        visibility=note.get("visibility") or "private",
+        body=note.get("body") or "",
+    )
+
+
 def experience_notes() -> dto.ExperienceNotesResponse:
-    """경험 노트 저장 기능은 아직 없다. 가짜 노트를 지어내지 않는다."""
-    return dto.ExperienceNotesResponse(items=[])
+    """담당자가 저장한 경험 노트. 최근 것부터. 지어낸 노트는 없다."""
+    return dto.ExperienceNotesResponse(
+        items=[_note_dto(note) for note in reversed(state_store.notes())]
+    )
+
+
+def add_experience_note(
+    task_id: str | None, visibility: str, body: str
+) -> dto.ExperienceNote:
+    task = next((t for t in tasks().items if t.id == task_id), None) if task_id else None
+    saved = state_store.add_note(
+        {
+            "task_id": task_id or "",
+            "task_title": task.title if task else "일반 메모",
+            "academic_year": _academic_year(_today()),
+            "visibility": visibility,
+            "body": body,
+        }
+    )
+    return _note_dto(saved)
 
 
 def notifications() -> dto.NotificationsResponse:
@@ -552,23 +693,25 @@ def notifications() -> dto.NotificationsResponse:
     # 최근에 지난 것(가장 시급한 것)부터
     candidates.sort(key=lambda row: row[0], reverse=True)
 
+    read = state_store.read_notification_ids()
     items = []
-    for index, (start, phase, task) in enumerate(
-        candidates[:NOTIFICATION_LIMIT], start=1
-    ):
+    for start, phase, task in candidates[:NOTIFICATION_LIMIT]:
         if phase == "지남":
             title = f"{task.title} · 권장 준비 시작일이 지났습니다"
             kind = "prep"
         else:
             title = f"{task.title} · 준비 시작 권장"
             kind = "due"
+        # id가 업무에 붙어 있어야 읽음을 기억할 수 있다. 순번 id는 목록이
+        # 바뀔 때마다 달라져 읽음 표시가 다른 알림으로 미끄러진다.
+        notification_id = f"n_{task.id}"
         items.append(
             dto.Notification(
-                id=f"gen_{index}",
+                id=notification_id,
                 title=title,
                 message=f"작년 기준 시작 {start} · 작년 처리 {task.previous_actual_date}",
                 kind=kind,
-                is_new=phase == "임박" or start >= (_today() - timedelta(days=14)).isoformat(),
+                is_new=notification_id not in read,
                 related_task_id=task.id,
             )
         )

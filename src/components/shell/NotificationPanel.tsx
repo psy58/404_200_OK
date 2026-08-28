@@ -1,8 +1,8 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { Panel } from "@/components/ui/Panel";
 import { QueryBoundary } from "@/components/ui/QueryBoundary";
-import { getNotifications } from "@/services/notificationsService";
+import { getNotifications, markAllNotificationsRead } from "@/services/notificationsService";
 import { qk } from "@/state/queryKeys";
 import { useToast } from "@/state/ToastContext";
 import { AlertIcon, InfoIcon } from "@/lib/icons";
@@ -27,6 +27,15 @@ export function NotificationPanel({ onClose }: { onClose: () => void }) {
   const query = useQuery({ queryKey: qk.notifications(), queryFn: ({ signal }) => getNotifications(signal) });
   const navigate = useNavigate();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const readAll = useMutation({
+    mutationFn: markAllNotificationsRead,
+    onSuccess: (marked) => {
+      queryClient.invalidateQueries({ queryKey: qk.notifications() });
+      toast(`${marked}건을 읽음으로 표시했습니다`);
+    },
+    onError: (error: Error) => toast(error.message),
+  });
 
   return (
     <Panel
@@ -40,9 +49,8 @@ export function NotificationPanel({ onClose }: { onClose: () => void }) {
           </button>
           <button
             className="btn btn-primary"
-            onClick={() => {
-              toast("모두 읽음으로 표시했습니다 (시연)");
-            }}
+            disabled={readAll.isPending}
+            onClick={() => readAll.mutate()}
           >
             모두 읽음
           </button>
@@ -52,8 +60,8 @@ export function NotificationPanel({ onClose }: { onClose: () => void }) {
       <div className="notice" style={{ margin: "14px 24px" }}>
         <InfoIcon />
         <span>
-          알림은 P1 실기능입니다. 현재 화면은 <strong>시연 데이터</strong>이며 실제 발송·읽음 처리·중복 방지는 백엔드
-          연결 후 동작합니다.
+          작년 이맘때 시작한 업무의 시기를 알립니다. <strong>읽음 표시는 서버에 저장</strong>되어 새로고침해도
+          유지됩니다.
         </span>
       </div>
       <QueryBoundary

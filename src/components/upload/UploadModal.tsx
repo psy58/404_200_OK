@@ -1,103 +1,93 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
+import { uploadDocument } from "@/services/uploadsService";
 import { useToast } from "@/state/ToastContext";
 import { InfoIcon, FileIcon, UploadIcon } from "@/lib/icons";
+import type { RawUploadRecord } from "@/domain/raw-schemas";
 
-const STEPS = ["선택", "업로드", "서버 검사", "파싱", "분석", "검토 필요"] as const;
-const MOCK_FILES = [
-  { name: "2025_과학정보부_기안문서목록.xlsx", size: "248 KB" },
-  { name: "2025_AI교육주간_운영계획.hwp", size: "1.4 MB" },
-  { name: "2025_접수문서목록.csv", size: "86 KB" },
-];
+type RowState = { name: string; size: number; status: "대기" | "업로드 중" | "저장됨" | "실패"; error?: string };
 
 /**
- * F04 파일 전체 업로드·분석 (MVP P0 per 영상 지시서/구현 보충안 §2, §7).
- * SPEC_ALIGNMENT_REQUIRED against docs/01 §7.1's metadata-only MVP — see
- * docs/requirements-traceability-design.md §2. Every stage here is a client
- * simulation; there is no real upload/scan/parse/analyze backend
- * (BACKEND_CONTRACT_REQUIRED), so nothing here is reported as delivered
- * server behavior.
+ * F04 문서 업로드 — 파일이 실제로 백엔드(data/uploads/)에 저장된다.
+ * 정직한 범위: 저장·접수 기록까지가 이 화면의 일이고, 분석·색인은 백엔드의
+ * 인제스트 파이프라인을 돌릴 때 반영된다(업로드 응답의 note가 그 사실을 말한다).
  */
 export function UploadModal({ onClose }: { onClose: () => void }) {
-  const [step, setStep] = useState(0);
+  const [rows, setRows] = useState<RowState[]>([]);
+  const [phase, setPhase] = useState<"pick" | "uploading" | "done">("pick");
+  const [serverNote, setServerNote] = useState("");
   const [dragOver, setDragOver] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setInterval>>();
+  const inputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  useEffect(() => () => clearInterval(timerRef.current), []);
+  async function run(files: File[]) {
+    if (!files.length) return;
+    setPhase("uploading");
+    setRows(files.map((f) => ({ name: f.name, size: f.size, status: "대기" })));
 
-  function runUpload() {
-    clearInterval(timerRef.current);
-    setStep(1);
-    timerRef.current = setInterval(() => {
-      setStep((s) => {
-        const next = s + 1;
-        if (next >= 5) {
-          clearInterval(timerRef.current);
-          return 5;
-        }
-        return next;
-      });
-    }, 900);
+    let saved = 0;
+    for (let i = 0; i < files.length; i += 1) {
+      setRows((r) => r.map((row, j) => (j === i ? { ...row, status: "업로드 중" } : row)));
+      try {
+        const record: RawUploadRecord = await uploadDocument(files[i]);
+        saved += 1;
+        setServerNote(record.note);
+        setRows((r) => r.map((row, j) => (j === i ? { ...row, status: "저장됨" } : row)));
+      } catch (err) {
+        setRows((r) =>
+          r.map((row, j) => (j === i ? { ...row, status: "실패", error: (err as Error).message } : row)),
+        );
+      }
+    }
+    setPhase("done");
+    toast(`${saved}/${files.length}개 파일을 서버에 저장했습니다`);
   }
 
-  const pct = Math.min(100, step * 20);
+  const sizeLabel = (n: number) => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
+  const doneCount = rows.filter((r) => r.status === "저장됨").length;
 
   return (
     <Modal
       titleId="upload-modal-title"
       wide
-      eyebrow="MVP P0 · 파일 업로드·분석"
-      title="문서 업로드·분석"
-      description="분석 결과는 사람이 승인하기 전까지 초안이며, 자동으로 확정 업무가 되지 않습니다."
+      eyebrow="문서 업로드"
+      title="문서 업로드"
+      description="파일은 서버에 저장되며, 분석·색인은 다음 인제스트 실행 때 문서함과 검색에 반영됩니다."
       onClose={onClose}
       footer={
         <>
-          {step > 0 && step < 5 && (
-            <button className="btn btn-quiet" onClick={onClose}>
-              취소
+          <button className="btn btn-quiet" onClick={onClose}>
+            {phase === "done" ? "닫기" : "취소"}
+          </button>
+          {phase === "done" && (
+            <button className="btn btn-primary" onClick={() => { setPhase("pick"); setRows([]); }}>
+              더 올리기
             </button>
-          )}
-          {step >= 5 && (
-            <>
-              <button className="btn btn-quiet" onClick={onClose}>
-                나중에 검토
-              </button>
-              <button
-                className="btn btn-primary"
-                onClick={() => {
-                  onClose();
-                  toast("초안 검토를 완료했습니다");
-                }}
-              >
-                초안 검토 완료
-              </button>
-            </>
           )}
         </>
       }
     >
-      <div className="steps" style={{ marginBottom: 18 }} aria-live="polite">
-        {STEPS.map((s, i) => (
-          <span key={s} className={`s ${i < step ? "ok" : i === step ? "on" : ""}`}>
-            {s}
-          </span>
-        ))}
-      </div>
-
-      {step === 0 ? (
+      {phase === "pick" ? (
         <>
+          <input
+            ref={inputRef}
+            type="file"
+            multiple
+            accept=".hwp,.hwpx,.pdf,.docx,.xlsx,.xls,.csv,.zip"
+            style={{ display: "none" }}
+            onChange={(e) => run(Array.from(e.target.files ?? []))}
+          />
           <div
             className={`drop${dragOver ? " over" : ""}`}
             onDragEnter={(e) => { e.preventDefault(); setDragOver(true); }}
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
             onDragLeave={(e) => { e.preventDefault(); setDragOver(false); }}
-            onDrop={(e) => { e.preventDefault(); setDragOver(false); runUpload(); }}
+            onDrop={(e) => { e.preventDefault(); setDragOver(false); run(Array.from(e.dataTransfer.files)); }}
           >
             <UploadIcon width={30} height={30} stroke="#2C6DAE" strokeWidth={1.7} />
             <p className="t-h2" style={{ margin: "12px 0 5px" }}>에듀파인에서 받은 파일을 여기에 놓으세요</p>
-            <p className="t-cap">HWP · PDF · DOCX · XLSX · CSV · ZIP · 파일당 20MB · 최대 30개</p>
-            <button className="btn btn-primary btn-sm" style={{ marginTop: 16 }} onClick={runUpload}>
+            <p className="t-cap">HWP · HWPX · PDF · DOCX · XLSX · CSV · ZIP</p>
+            <button className="btn btn-primary btn-sm" style={{ marginTop: 16 }} onClick={() => inputRef.current?.click()}>
               파일 선택
             </button>
           </div>
@@ -105,68 +95,34 @@ export function UploadModal({ onClose }: { onClose: () => void }) {
             <InfoIcon />
             <span>
               <strong>개인정보 주의.</strong> 학생·교직원 명단, 인사 자료, 민원 당사자 정보가 포함된 문서는 올리지
-              마세요. 파일은 서버에서 검사·격리 후 처리되며 본문은 브라우저에 저장하지 않습니다.
+              마세요.
             </span>
           </div>
         </>
       ) : (
         <>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span className="t-h2">파일 3개</span>
-            <span className="t-cap num">{pct}% · {STEPS[Math.min(step, 5)]}</span>
+            <span className="t-h2">파일 {rows.length}개</span>
+            <span className="t-cap num">{doneCount}/{rows.length} 저장됨</span>
           </div>
           <div className="prog" style={{ margin: "10px 0 14px" }}>
-            <span className="bar"><i style={{ width: `${pct}%` }} /></span>
+            <span className="bar"><i style={{ width: `${rows.length ? (doneCount / rows.length) * 100 : 0}%` }} /></span>
           </div>
-          {MOCK_FILES.map((f, i) => (
+          {rows.map((f) => (
             <div className="frow" key={f.name}>
               <span className="fic"><FileIcon /></span>
               <span>
                 <span className="fn">{f.name}</span>
-                <span className="fm">{f.size}</span>
+                <span className="fm">{sizeLabel(f.size)}{f.error ? ` · ${f.error}` : ""}</span>
               </span>
-              <span className={`chip ${step >= 5 ? (i === 2 ? "warn" : "ok") : ""}`}>
-                {step >= 5 ? (i === 2 ? "검토 필요" : "완료") : step >= 1 ? "처리 중" : "대기"}
-              </span>
+              <span className={`chip ${f.status === "저장됨" ? "ok" : f.status === "실패" ? "warn" : ""}`}>{f.status}</span>
             </div>
           ))}
-
-          {step >= 5 && (
-            <>
-              <div className="divider" />
-              <div style={{ display: "flex", gap: 9, alignItems: "center", marginBottom: 14 }}>
-                <span className="t-h2">AI 분석 초안</span>
-                <span className="chip warn">승인 전 초안</span>
-              </div>
-              <div className="draft">
-                <div className="dt">새 업무 후보 · AI 교육주간 운영</div>
-                <div className="dm">
-                  문서 4건이 같은 업무로 묶였습니다. 전년도 처리 시점은 2025.08.24, 공식 마감은 접수 공문 기준 09.02로{" "}
-                  <strong>추정</strong>되었습니다. 확인이 필요합니다.
-                </div>
-                <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
-                  <button
-                    className="btn btn-primary btn-sm"
-                    onClick={() => {
-                      onClose();
-                      toast("초안 검토를 완료했습니다");
-                    }}
-                  >
-                    업무로 등록
-                  </button>
-                  <button className="btn btn-quiet btn-sm">수정</button>
-                  <button className="btn btn-quiet btn-sm">제외</button>
-                </div>
-              </div>
-              <div className="draft">
-                <div className="dt">연결 실패 · 2025_접수문서목록.csv 3행</div>
-                <div className="dm">문서번호 형식이 인식되지 않아 업무에 연결하지 못했습니다. 원본을 확인하고 다시 시도하세요.</div>
-                <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
-                  <button className="btn btn-quiet btn-sm">다시 시도</button>
-                  <button className="btn btn-quiet btn-sm">건너뛰기</button>
-                </div>
-              </div>
-            </>
+          {phase === "done" && serverNote && (
+            <div className="notice info" style={{ marginTop: 16 }}>
+              <InfoIcon />
+              <span>{serverNote}</span>
+            </div>
           )}
         </>
       )}

@@ -10,7 +10,7 @@ sys.path.insert(0, str(BACKEND_DIR))
 sys.path.insert(0, str(BACKEND_DIR / "scripts"))
 
 from app.main import app  # noqa: E402
-from app.services import query_service, workflow_service  # noqa: E402
+from app.services import query_service, state_store, workflow_service  # noqa: E402
 
 MOCK_DIR = ROOT_DIR / "docs" / "mock"
 
@@ -29,6 +29,17 @@ def fresh_state():
     yield
     workflow_service.reset(use_generated=False)
     query_service.set_engine(None)
+
+
+@pytest.fixture(autouse=True)
+def isolated_user_state(tmp_path):
+    """담당자 상태(체크·노트·읽음·업로드)를 테스트마다 빈 임시 파일로.
+
+    없으면 테스트가 실제 data/user_state.json 을 오염시킨다.
+    """
+    state_store.reset(tmp_path / "user_state.json")
+    yield
+    state_store.reset()
 
 
 @pytest.fixture

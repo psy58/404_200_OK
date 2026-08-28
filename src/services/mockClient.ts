@@ -106,3 +106,22 @@ export async function postApi<T>(
   }
   return parsed.data;
 }
+
+/** 파일 업로드. JSON postApi 와 같은 규칙, 본문만 FormData. */
+export async function postFile<T>(path: string, file: File, schema: ZodType<T>): Promise<T> {
+  const body = new FormData();
+  body.append("file", file);
+
+  let res: Response;
+  try {
+    res = await fetch(path, { method: "POST", body });
+  } catch {
+    throw new ServerIssue("백엔드에 연결할 수 없습니다. `npm run dev:backend`와 백엔드 서버(8000)를 확인하세요.");
+  }
+  if (!res.ok) throw new ServerIssue(`업로드가 실패했습니다 (${res.status})`);
+
+  const json: unknown = await res.json();
+  const parsed = schema.safeParse(json);
+  if (!parsed.success) throw new ContractIssue(`upload response failed schema validation`);
+  return parsed.data;
+}

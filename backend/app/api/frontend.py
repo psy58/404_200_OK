@@ -16,10 +16,15 @@ AI 질의(업무 도우미 패널)는 별도 계약인 POST /api/v1/query 를 �
 docs/API.md 참고. task id가 곧 workflow_id 이므로 그대로 넘기면 된다.
 """
 
-from fastapi import APIRouter
+import re
+from datetime import datetime, timezone
+from pathlib import Path
 
+from fastapi import APIRouter, UploadFile
+
+from .. import settings
 from ..models import frontend as dto
-from ..services import frontend_service
+from ..services import frontend_service, state_store
 
 router = APIRouter()
 alias = APIRouter()  # /mocks/backend/*.json
@@ -93,3 +98,114 @@ def get_task_detail(task_id: str) -> dto.TaskDetail:
 )
 def get_task_detail_alias(task_id: str) -> dto.TaskDetail:
     return frontend_service.task_detail(task_id)
+
+
+# --- 저장(변경) ---------------------------------------------------------------
+#
+# 여기부터는 담당자가 화면에서 만든 상태다. 산출물과 달리 재생성할 수 없어
+# data/user_state.json 에 남긴다 (state_store).
+
+
+@router.post(
+    "/tasks",
+    response_model=dto.Task,
+    summary="업무 카드 직접 추가 — data/user_state.json 에 남는다",
+)
+def create_task(request: dto.TaskCreateRequest) -> dto.Task:
+    return frontend_service.create_custom_task(
+        title=request.title,
+        start_date=request.start_date,
+        due_date=request.due_date,
+        category=request.category,
+        memo=request.memo,
+    )
+
+
+@router.post(
+    "/task-details/{task_id}/checklist/{item_id}",
+    response_model=dto.TaskDetail,
+    response_model_exclude_none=True,
+    summary="체크리스트 확인/해제 — 저장 후 갱신된 상세를 돌려준다",
+)
+def toggle_checklist(
+    task_id: str, item_id: str, request: dto.ChecklistToggleRequest
+) -> dto.TaskDetail:
+    # 존재 확인을 먼저 한다. 없는 업무에 상태만 쌓이는 것을 막는다.
+    detail = frontend_service.task_detail(task_id)
+    if not any(item.id == item_id for item in detail.checklist):
+        from ..errors import not_found
+
+        raise not_found("checklist_item_not_found", f"항목 '{item_id}'가 없습니다.")
+
+    state_store.set_checklist_item(task_id, item_id, request.done)
+    return frontend_service.task_detail(task_id)
+
+
+@router.post(
+    "/experience-notes",
+    response_model=dto.ExperienceNote,
+    summary="경험 노트 저장",
+)
+def create_note(request: dto.NoteCreateRequest) -> dto.ExperienceNote:
+    return frontend_service.add_experience_note(
+        request.task_id, request.visibility, request.body
+    )
+
+
+@router.post(
+    "/notifications/read",
+    response_model=dto.NotificationsReadResponse,
+    summary="알림 읽음 처리 (ids 비우면 전부)",
+)
+def mark_notifications_read(
+    request: dto.NotificationsReadRequest,
+) -> dto.NotificationsReadResponse:
+    ids = request.ids
+    if request.all or not ids:
+        ids = [item.id for item in frontend_service.notifications().items]
+    return dto.NotificationsReadResponse(
+        marked=state_store.mark_notifications_read(ids)
+    )
+
+
+UPLOAD_DIR = settings.DATA_DIR / "uploads"
+UPLOAD_NOTE = (
+    "서버에 저장했습니다. 분석·색인은 인제스트 파이프라인"
+    "(scripts/convert_to_markdown.py)을 돌릴 때 반영됩니다."
+)
+
+
+def _safe_filename(name: str) -> str:
+    """경로 조작을 막는다. 이름의 글자만 남긴다."""
+    cleaned = re.sub(r"[^\w가-힣.() \-]", "_", Path(name or "파일").name)
+    return cleaned or "파일"
+
+
+@router.post(
+    "/uploads",
+    response_model=dto.UploadRecord,
+    summary="문서 파일 업로드 — 저장까지. 분석은 인제스트가 한다",
+)
+async def upload_file(file: UploadFile) -> dto.UploadRecord:
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    filename = _safe_filename(file.filename or "")
+    content = await file.read()
+
+    record = state_store.add_upload(
+        {
+            "filename": filename,
+            "size": len(content),
+            "uploaded_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "status": "received",
+        }
+    )
+    # 같은 이름이 또 와도 덮어쓰지 않도록 id를 앞에 붙인다
+    (UPLOAD_DIR / f"{record['id']}_{filename}").write_bytes(content)
+    return dto.UploadRecord(**record, note=UPLOAD_NOTE)
+
+
+@router.get("/uploads", response_model=dto.UploadsResponse, summary="업로드 기록")
+def list_uploads() -> dto.UploadsResponse:
+    return dto.UploadsResponse(
+        items=[dto.UploadRecord(**row, note=UPLOAD_NOTE) for row in state_store.uploads()]
+    )

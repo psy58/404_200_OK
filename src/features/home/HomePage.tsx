@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { getTasks } from "@/services/tasksService";
@@ -9,6 +10,7 @@ import { useOverlay } from "@/state/OverlayContext";
 import { qk } from "@/state/queryKeys";
 import { QueryBoundary } from "@/components/ui/QueryBoundary";
 import { KpiCard } from "@/components/ui/KpiCard";
+import { NewTaskModal } from "@/components/tasks/NewTaskModal";
 import { TaskRow } from "@/components/tasks/TaskRow";
 import { DateRail } from "@/components/ui/DateRail";
 import { Chip } from "@/components/ui/Chip";
@@ -24,6 +26,7 @@ const VISIBILITY_LABEL: Record<string, { label: string; tone: string }> = {
 };
 
 export function HomePage() {
+  const [showNewTask, setShowNewTask] = useState(false);
   const { activeAssignment, activeAssignmentId } = useAssignment();
   const { open } = useOverlay();
 
@@ -65,6 +68,9 @@ export function HomePage() {
           <Link className="btn btn-quiet" to="/map">
             연간 지도 열기
           </Link>
+          <button className="btn btn-quiet" onClick={() => setShowNewTask(true)}>
+            새 업무 추가
+          </button>
           <button className="btn btn-primary" onClick={() => open("upload")}>
             문서 업로드·분석
           </button>
@@ -291,6 +297,7 @@ export function HomePage() {
           </section>
         </aside>
       </div>
+      {showNewTask && <NewTaskModal onClose={() => setShowNewTask(false)} />}
     </div>
   );
 }

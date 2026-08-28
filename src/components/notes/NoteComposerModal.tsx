@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Modal } from "@/components/ui/Modal";
-import { saveExperienceNoteMockOnly } from "@/services/notesService";
+import { saveExperienceNote } from "@/services/notesService";
 import { useToast } from "@/state/ToastContext";
 import { qk } from "@/state/queryKeys";
 import { InfoIcon, CheckIcon } from "@/lib/icons";
@@ -24,12 +24,13 @@ export function NoteComposerModal({ taskId, onClose }: { taskId?: string; onClos
   const queryClient = useQueryClient();
 
   const mutation = useMutation({
-    mutationFn: saveExperienceNoteMockOnly,
+    mutationFn: () => saveExperienceNote({ taskId, visibility, body }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: qk.notes() });
       onClose();
-      toast("저장했습니다 (시연)");
+      toast("저장했습니다");
     },
+    onError: (error: Error) => toast(error.message),
   });
 
   return (

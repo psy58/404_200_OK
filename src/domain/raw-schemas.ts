@@ -165,6 +165,18 @@ export const RawAssistantAnswerSchema = z.object({
   }),
 });
 
+/** 저장(변경) 응답들 — docs/BACKEND_INTEGRATION.md */
+export const RawNotificationsReadSchema = z.object({ marked: z.number() });
+export const RawUploadRecordSchema = z.object({
+  id: z.string(),
+  filename: z.string(),
+  size: z.number(),
+  uploaded_at: z.string(),
+  status: z.literal("received"),
+  note: z.string(),
+});
+
+export type RawUploadRecord = z.infer<typeof RawUploadRecordSchema>;
 export type RawAssistantAnswer = z.infer<typeof RawAssistantAnswerSchema>;
 export type RawTaskDetail = z.infer<typeof RawTaskDetailSchema>;
 export type RawTask = z.infer<typeof RawTaskSchema>;
