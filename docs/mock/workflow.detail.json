@@ -1,0 +1,50 @@
+{
+  "workflow_id": "science_competition",
+  "name": "과학대회 참가",
+  "description": "교외 과학대회에 학생을 참가시키는 업무",
+  "steps": [
+    {
+      "step_id": "1",
+      "name": "학생 모집",
+      "status": "completed",
+      "description": null,
+      "completed_at": "2026-08-25T09:00:00Z",
+      "document_ids": []
+    },
+    {
+      "step_id": "2",
+      "name": "학생 선발",
+      "status": "completed",
+      "description": null,
+      "completed_at": "2026-08-25T09:00:00Z",
+      "document_ids": []
+    },
+    {
+      "step_id": "3",
+      "name": "참가 신청",
+      "status": "current",
+      "description": "학생 명단을 첨부해 참가 신청서를 제출한다.",
+      "completed_at": null,
+      "document_ids": [
+        "doc_2026_competition_guide"
+      ]
+    },
+    {
+      "step_id": "4",
+      "name": "내부 결재",
+      "status": "pending",
+      "description": null,
+      "completed_at": null,
+      "document_ids": []
+    },
+    {
+      "step_id": "5",
+      "name": "결과 보고",
+      "status": "pending",
+      "description": null,
+      "completed_at": null,
+      "document_ids": []
+    }
+  ],
+  "updated_at": "2026-08-25T09:00:00Z"
+}

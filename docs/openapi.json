@@ -1,0 +1,1543 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "업무 네비게이터 API",
+    "description": "학교 업무 담당자의 질문에 다음 할 일과 근거 문서를 돌려주는 API. 지금은 모든 엔드포인트가 예시 데이터로 동작한다.",
+    "version": "0.2.0"
+  },
+  "paths": {
+    "/api/v1/query": {
+      "post": {
+        "tags": [
+          "query"
+        ],
+        "summary": "업무에 대해 묻고 다음 할 일과 근거 문서를 받는다",
+        "operationId": "post_query_api_v1_query_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueryResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/workflows": {
+      "get": {
+        "tags": [
+          "workflows"
+        ],
+        "summary": "등록된 업무 목록",
+        "operationId": "list_workflows_api_v1_workflows_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/workflows/{workflow_id}": {
+      "get": {
+        "tags": [
+          "workflows"
+        ],
+        "summary": "업무 흐름 조회",
+        "operationId": "get_workflow_api_v1_workflows__workflow_id__get",
+        "parameters": [
+          {
+            "name": "workflow_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "examples": [
+                "science_competition"
+              ],
+              "title": "Workflow Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/workflows/{workflow_id}/steps/{step_id}/complete": {
+      "post": {
+        "tags": [
+          "workflows"
+        ],
+        "summary": "단계 완료 처리",
+        "description": "완료 처리한 뒤 갱신된 업무 흐름 전체를 돌려준다. 프론트는 응답으로 화면을 그대로 다시 그리면 되고, 따로 조회하지 않아도 된다.",
+        "operationId": "complete_step_api_v1_workflows__workflow_id__steps__step_id__complete_post",
+        "parameters": [
+          {
+            "name": "workflow_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Workflow Id"
+            }
+          },
+          {
+            "name": "step_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Step Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StepCompleteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/workflows/{workflow_id}/feedback": {
+      "post": {
+        "tags": [
+          "workflows"
+        ],
+        "summary": "실제 업무가 등록된 흐름과 다를 때 알린다",
+        "operationId": "post_feedback_api_v1_workflows__workflow_id__feedback_post",
+        "parameters": [
+          {
+            "name": "workflow_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Workflow Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedbackRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/documents/{document_id}": {
+      "get": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "문서 정보 조회",
+        "operationId": "get_document_api_v1_documents__document_id__get",
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Document Id"
+            }
+          },
+          {
+            "name": "include_content",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "본문 전체가 필요할 때만 true. 기본은 메타데이터만 돌려준다.",
+              "default": false,
+              "title": "Include Content"
+            },
+            "description": "본문 전체가 필요할 때만 true. 기본은 메타데이터만 돌려준다."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/documents/{document_id}/chunks/{chunk_id}": {
+      "get": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "문서 조각 조회",
+        "operationId": "get_chunk_api_v1_documents__document_id__chunks__chunk_id__get",
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Document Id"
+            }
+          },
+          {
+            "name": "chunk_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Chunk Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChunkDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ChunkDetail": {
+        "properties": {
+          "document_id": {
+            "type": "string",
+            "title": "Document Id"
+          },
+          "chunk_id": {
+            "type": "string",
+            "title": "Chunk Id",
+            "examples": [
+              "chunk_0142"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "title": "Title",
+            "description": "편의를 위해 문서 제목을 함께 보낸다.",
+            "examples": [
+              "2026 학생 교외대회 참가 지침"
+            ]
+          },
+          "page": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page",
+            "examples": [
+              12
+            ]
+          },
+          "content": {
+            "type": "string",
+            "title": "Content",
+            "description": "조각 본문(Markdown)."
+          },
+          "prev_chunk_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prev Chunk Id"
+          },
+          "next_chunk_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Chunk Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "document_id",
+          "chunk_id",
+          "title",
+          "content"
+        ],
+        "title": "ChunkDetail",
+        "description": "근거로 인용된 조각 하나. 앞뒤 조각으로 이동할 수 있다."
+      },
+      "DocumentDetail": {
+        "properties": {
+          "document_id": {
+            "type": "string",
+            "title": "Document Id",
+            "examples": [
+              "doc_2026_competition_guide"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "title": "Title",
+            "examples": [
+              "2026 학생 교외대회 참가 지침"
+            ]
+          },
+          "source_type": {
+            "$ref": "#/components/schemas/SourceType"
+          },
+          "doc_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doc Number",
+            "description": "공문서 번호. 학교 문서가 아니면 null.",
+            "examples": [
+              "숭의여자고등학교-10129"
+            ]
+          },
+          "issued_on": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issued On",
+            "description": "생산 또는 접수 일자."
+          },
+          "page_count": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Count",
+            "examples": [
+              24
+            ]
+          },
+          "chunk_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Chunk Count",
+            "examples": [
+              87
+            ]
+          },
+          "original_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Url",
+            "description": "원본 파일을 받을 수 있는 경로. 없으면 null."
+          },
+          "content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content",
+            "description": "문서 전체를 Markdown으로 변환한 본문. 기본은 null이며 include_content=true 로 요청할 때만 채워진다."
+          }
+        },
+        "type": "object",
+        "required": [
+          "document_id",
+          "title",
+          "source_type",
+          "chunk_count"
+        ],
+        "title": "DocumentDetail",
+        "description": "문서 제목과 원문 보기 링크를 그리는 데 필요한 정보."
+      },
+      "DocumentResult": {
+        "properties": {
+          "document_id": {
+            "type": "string",
+            "title": "Document Id",
+            "examples": [
+              "doc_2026_competition_guide"
+            ]
+          },
+          "chunk_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chunk Id",
+            "examples": [
+              "chunk_0142"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "title": "Title",
+            "examples": [
+              "2026 학생 교외대회 참가 지침"
+            ]
+          },
+          "page": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page",
+            "examples": [
+              12
+            ]
+          },
+          "snippet": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snippet",
+            "description": "원문 미리보기. 화면에 그대로 보여줄 수 있는 길이로 잘라서 보낸다.",
+            "examples": [
+              "교외대회 참가 신청은 대회 개최일 30일 전까지 학교장 결재를 거쳐..."
+            ]
+          },
+          "relevance": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Relevance",
+            "examples": [
+              0.87
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "document_id",
+          "title",
+          "relevance"
+        ],
+        "title": "DocumentResult",
+        "description": "답변의 근거가 된 문서 조각.\n\ndocument_id와 chunk_id는 그대로 문서 조회 API의 경로에 쓰인다.\nGET /api/v1/documents/{document_id}\nGET /api/v1/documents/{document_id}/chunks/{chunk_id}"
+      },
+      "ErrorDetail": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code",
+            "description": "프론트가 분기에 쓰는 코드. 사람이 읽는 문구는 message를 쓴다.",
+            "examples": [
+              "workflow_not_found"
+            ]
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "examples": [
+              "요청한 업무를 찾을 수 없습니다."
+            ]
+          },
+          "details": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Details",
+            "description": "검증 실패(422)일 때 어떤 필드가 왜 틀렸는지.",
+            "examples": [
+              [
+                {
+                  "field": "body.query",
+                  "reason": "String should have at least 1 character"
+                }
+              ]
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "ErrorDetail"
+      },
+      "ErrorResponse": {
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ErrorDetail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "title": "ErrorResponse",
+        "description": "4xx/5xx 응답의 공통 형태. 프론트는 error.code로 분기한다."
+      },
+      "FeedbackRequest": {
+        "properties": {
+          "type": {
+            "$ref": "#/components/schemas/FeedbackType"
+          },
+          "after_step_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "After Step Id",
+            "description": "기준이 되는 단계. 이 단계 다음에 차이가 있다는 뜻이다. null이면 워크플로 맨 앞을 가리킨다.",
+            "examples": [
+              "2"
+            ]
+          },
+          "suggested_step_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggested Step Name",
+            "description": "missing_step일 때 실제로 했던 일의 이름.",
+            "examples": [
+              "개인정보 동의"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Description",
+            "description": "담당자가 직접 쓴 설명. 이후 워크플로 개선 검토에 쓴다."
+          },
+          "query_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Query Id",
+            "description": "이 피드백을 유발한 /query 응답이 있으면 그 식별자."
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "description"
+        ],
+        "title": "FeedbackRequest"
+      },
+      "FeedbackResponse": {
+        "properties": {
+          "feedback_id": {
+            "type": "string",
+            "title": "Feedback Id",
+            "examples": [
+              "fb_01HZX4A2"
+            ]
+          },
+          "workflow_id": {
+            "type": "string",
+            "title": "Workflow Id"
+          },
+          "type": {
+            "$ref": "#/components/schemas/FeedbackType"
+          },
+          "diff": {
+            "$ref": "#/components/schemas/WorkflowDiff"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "description": "담당자에게 보여줄 접수 확인 문구.",
+            "examples": [
+              "의견이 접수되었습니다. 워크플로 개선 검토에 반영됩니다."
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "feedback_id",
+          "workflow_id",
+          "type",
+          "diff",
+          "message"
+        ],
+        "title": "FeedbackResponse"
+      },
+      "FeedbackType": {
+        "type": "string",
+        "enum": [
+          "missing_step",
+          "unnecessary_step",
+          "wrong_order",
+          "wrong_document",
+          "other"
+        ],
+        "title": "FeedbackType",
+        "description": "실제 업무가 등록된 워크플로와 다를 때, 어떻게 다른지."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "NextAction": {
+        "properties": {
+          "step_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step Id",
+            "examples": [
+              "3"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "title": "Title",
+            "examples": [
+              "참가 신청서 제출"
+            ]
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description",
+            "examples": [
+              "대회 운영 계획서와 학생 명단을 첨부해 신청서를 제출합니다."
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "title"
+        ],
+        "title": "NextAction",
+        "description": "사용자가 다음에 할 일 하나.\n\nstep_id가 있으면 프론트는 그 항목에 '완료' 버튼을 붙여\nPOST /api/v1/workflows/{workflow_id}/steps/{step_id}/complete 를 호출할 수 있다.\n워크플로에 등록되지 않은 안내성 할 일은 step_id가 null이다."
+      },
+      "QueryData": {
+        "properties": {
+          "workflow": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorkflowRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "current_stage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StageRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "next_stage": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StageRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "next_actions": {
+            "items": {
+              "$ref": "#/components/schemas/NextAction"
+            },
+            "type": "array",
+            "title": "Next Actions"
+          },
+          "documents": {
+            "items": {
+              "$ref": "#/components/schemas/DocumentResult"
+            },
+            "type": "array",
+            "title": "Documents",
+            "description": "답변 근거. 관련도 내림차순으로 정렬해서 보낸다."
+          },
+          "timeline": {
+            "items": {
+              "$ref": "#/components/schemas/TimelineEntry"
+            },
+            "type": "array",
+            "title": "Timeline",
+            "description": "이 질문과 관련된 문서를 시간순으로 늘어놓은 것. 날짜를 아는 문서가 앞에 오고 날짜를 모르는 문서가 뒤에 온다. 관련 문서가 하나뿐이면 비어 있을 수 있다."
+          }
+        },
+        "type": "object",
+        "title": "QueryData",
+        "description": "LLM 문장이 아니라 애플리케이션 로직이 채우는 구조화 정보.\n\n업무를 특정하지 못했으면 workflow와 단계는 모두 null이고\ndocuments만 채워질 수 있다. 프론트는 모든 필드가 비어 있는 경우를\n반드시 처리해야 한다."
+      },
+      "QueryRequest": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Query",
+            "description": "자연어 질문."
+          },
+          "workflow_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workflow Id",
+            "description": "사용자가 이미 특정 업무 화면에 있을 때 그 업무를 알려준다. 비워 두면 백엔드가 질문에서 업무를 추정한다."
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id",
+            "description": "같은 대화의 이어지는 질문을 묶는 식별자. 첫 질문에서는 비워 둔다."
+          }
+        },
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "title": "QueryRequest",
+        "description": "사용자가 업무에 대해 묻는다.",
+        "examples": [
+          {
+            "query": "과학대회 참가하려면 뭐부터 해야 하나요?",
+            "session_id": "sess_8f2c"
+          }
+        ]
+      },
+      "QueryResponse": {
+        "properties": {
+          "query_id": {
+            "type": "string",
+            "title": "Query Id",
+            "description": "이 응답의 식별자. 피드백·로그 추적에 쓴다."
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "description": "사용자에게 그대로 보여줄 자연어 설명. LLM이 생성한다."
+          },
+          "data": {
+            "$ref": "#/components/schemas/QueryData",
+            "description": "화면 구성에 쓰는 구조화 정보. LLM이 자유롭게 만들지 않는다."
+          }
+        },
+        "type": "object",
+        "required": [
+          "query_id",
+          "message",
+          "data"
+        ],
+        "title": "QueryResponse",
+        "examples": [
+          {
+            "data": {
+              "current_stage": {
+                "name": "학생 선발",
+                "step_id": "2"
+              },
+              "documents": [
+                {
+                  "chunk_id": "chunk_0142",
+                  "document_id": "doc_2026_competition_guide",
+                  "page": 12,
+                  "relevance": 0.87,
+                  "snippet": "교외대회 참가 신청은 대회 개최일 30일 전까지...",
+                  "title": "2026 학생 교외대회 참가 지침"
+                }
+              ],
+              "next_actions": [
+                {
+                  "description": "학생 명단을 첨부해 신청서를 제출합니다.",
+                  "step_id": "3",
+                  "title": "참가 신청서 제출"
+                },
+                {
+                  "description": "개인정보 제공 동의서를 미리 받아 둡니다.",
+                  "title": "보호자 동의서 수합"
+                }
+              ],
+              "next_stage": {
+                "name": "참가 신청",
+                "step_id": "3"
+              },
+              "workflow": {
+                "name": "과학대회 참가",
+                "workflow_id": "science_competition"
+              }
+            },
+            "message": "학생 선발이 완료되었으므로 다음 단계는 참가 신청입니다. 참가 신청서에는 학교장 결재가 필요합니다.",
+            "query_id": "qry_01HZX3K9"
+          }
+        ]
+      },
+      "SourceType": {
+        "type": "string",
+        "enum": [
+          "hwpx",
+          "hwp",
+          "pdf",
+          "xlsx",
+          "other"
+        ],
+        "title": "SourceType",
+        "description": "원본 파일 종류. 프론트가 아이콘을 고르는 데 쓴다."
+      },
+      "StageRef": {
+        "properties": {
+          "step_id": {
+            "type": "string",
+            "title": "Step Id",
+            "examples": [
+              "3"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "examples": [
+              "참가 신청"
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "step_id",
+          "name"
+        ],
+        "title": "StageRef",
+        "description": "워크플로 안의 한 단계를 가리킨다."
+      },
+      "StepCompleteRequest": {
+        "properties": {
+          "completed": {
+            "type": "boolean",
+            "title": "Completed",
+            "default": true
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note",
+            "description": "담당자가 남기는 메모. 업무 Trace에 함께 기록된다."
+          }
+        },
+        "type": "object",
+        "title": "StepCompleteRequest",
+        "description": "단계 완료 처리.\n\ncompleted를 false로 보내면 완료를 되돌린다. 잘못 누른 경우를 위해\n되돌리기도 같은 엔드포인트로 처리한다."
+      },
+      "StepStatus": {
+        "type": "string",
+        "enum": [
+          "completed",
+          "current",
+          "pending"
+        ],
+        "title": "StepStatus",
+        "description": "워크플로 한 단계의 진행 상태."
+      },
+      "TimelineEntry": {
+        "properties": {
+          "document_id": {
+            "type": "string",
+            "title": "Document Id",
+            "examples": [
+              "doc_ea3ff8c315"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "title": "Title",
+            "examples": [
+              "2025년 AI 중심학교 운영 계획서"
+            ]
+          },
+          "date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date",
+            "description": "결재일이 있으면 결재일, 없으면 시행일이나 접수일.",
+            "examples": [
+              "2025-09-19"
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "문서 종류. 계획 / 지침 / 안내·공모 / 결과보고 / 지출·정산 / 회의",
+            "examples": [
+              "계획"
+            ]
+          },
+          "direction": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Direction",
+            "description": "drafted(우리가 기안) / received(받은 공문)",
+            "examples": [
+              "drafted"
+            ]
+          },
+          "audience": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Audience",
+            "description": "교육청 제출 / 내부 진행 / 교육청 수신. 담당자가 '이걸 밖에 내야 하나'를 바로 알 수 있게 나눈 것이다.",
+            "examples": [
+              "내부 진행"
+            ]
+          },
+          "doc_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doc Number",
+            "examples": [
+              "숭의여자고등학교-11975"
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "document_id",
+          "title",
+          "kind"
+        ],
+        "title": "TimelineEntry",
+        "description": "한 사업이 시간순으로 어떻게 진행됐는지 보여 주는 한 줄.\n\n검색으로 찾은 문서와 그것에 이어진 문서를 날짜순으로 늘어놓은 것이다.\n담당자가 \"지금 어디쯤인지\"를 알려면 조각 몇 개가 아니라 이 흐름이 필요하다."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "WorkflowDetail": {
+        "properties": {
+          "workflow_id": {
+            "type": "string",
+            "title": "Workflow Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/WorkflowStep"
+            },
+            "type": "array",
+            "title": "Steps"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "workflow_id",
+          "name",
+          "steps"
+        ],
+        "title": "WorkflowDetail",
+        "description": "업무 흐름 시각화에 필요한 전부.\n\nsteps는 진행 순서대로 정렬해서 보낸다. 프론트가 다시 정렬하지 않아도 된다."
+      },
+      "WorkflowDiff": {
+        "properties": {
+          "expected": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Expected",
+            "examples": [
+              [
+                "학생 선발",
+                "참가 신청"
+              ]
+            ]
+          },
+          "reported": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Reported",
+            "examples": [
+              [
+                "학생 선발",
+                "개인정보 동의",
+                "참가 신청"
+              ]
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "expected",
+          "reported"
+        ],
+        "title": "WorkflowDiff",
+        "description": "등록된 흐름과 담당자가 말한 실제 흐름의 차이.\n\n프론트는 두 배열을 나란히 놓아 예상 / 실제로 보여줄 수 있다."
+      },
+      "WorkflowListResponse": {
+        "properties": {
+          "workflows": {
+            "items": {
+              "$ref": "#/components/schemas/WorkflowSummary"
+            },
+            "type": "array",
+            "title": "Workflows"
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "workflows",
+          "total"
+        ],
+        "title": "WorkflowListResponse"
+      },
+      "WorkflowRef": {
+        "properties": {
+          "workflow_id": {
+            "type": "string",
+            "title": "Workflow Id",
+            "examples": [
+              "science_competition"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "examples": [
+              "과학대회 참가"
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "workflow_id",
+          "name"
+        ],
+        "title": "WorkflowRef",
+        "description": "질문이 어떤 업무에 해당하는지 가리키는 최소 정보.\n\n상세 단계 목록이 필요하면 프론트는 GET /api/v1/workflows/{workflow_id}를\n따로 호출한다. 질의 응답에 전체 워크플로를 실어 보내지 않는다."
+      },
+      "WorkflowStep": {
+        "properties": {
+          "step_id": {
+            "type": "string",
+            "title": "Step Id",
+            "examples": [
+              "3"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "examples": [
+              "참가 신청"
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/StepStatus"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description",
+            "examples": [
+              "학생 명단을 첨부해 참가 신청서를 제출한다."
+            ]
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At",
+            "description": "완료 처리된 시각. status가 completed일 때만 값이 있다."
+          },
+          "document_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Document Ids",
+            "description": "이 단계에서 참고하거나 작성하는 문서."
+          }
+        },
+        "type": "object",
+        "required": [
+          "step_id",
+          "name",
+          "status"
+        ],
+        "title": "WorkflowStep",
+        "description": "워크플로의 한 단계."
+      },
+      "WorkflowSummary": {
+        "properties": {
+          "workflow_id": {
+            "type": "string",
+            "title": "Workflow Id",
+            "examples": [
+              "science_competition"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "examples": [
+              "과학대회 참가"
+            ]
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description",
+            "examples": [
+              "교외 과학대회에 학생을 참가시키는 업무"
+            ]
+          },
+          "step_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Step Count",
+            "examples": [
+              5
+            ]
+          },
+          "completed_step_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Completed Step Count",
+            "examples": [
+              2
+            ]
+          },
+          "current_step": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Step",
+            "description": "진행 중인 단계 이름. 시작 전이거나 모두 끝났으면 null.",
+            "examples": [
+              "참가 신청"
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "workflow_id",
+          "name",
+          "step_count",
+          "completed_step_count"
+        ],
+        "title": "WorkflowSummary",
+        "description": "목록 화면에 쓰는 요약. 단계 목록은 담지 않는다."
+      }
+    }
+  }
+}

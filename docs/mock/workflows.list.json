@@ -1,0 +1,21 @@
+{
+  "workflows": [
+    {
+      "workflow_id": "science_competition",
+      "name": "과학대회 참가",
+      "description": "교외 과학대회에 학생을 참가시키는 업무",
+      "step_count": 5,
+      "completed_step_count": 2,
+      "current_step": "참가 신청"
+    },
+    {
+      "workflow_id": "saturday_science_class",
+      "name": "토요과학교실 운영",
+      "description": "외부 강사와 함께 토요 프로그램을 운영하는 업무",
+      "step_count": 3,
+      "completed_step_count": 1,
+      "current_step": "가정통신문 발송"
+    }
+  ],
+  "total": 2
+}

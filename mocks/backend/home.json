@@ -1,0 +1,165 @@
+{
+  "schema_version": "ui-api-boundary-v2.mock.1",
+  "contract_status": "MOCK_ONLY",
+  "generated_at": "2026-08-28T09:00:00+09:00",
+  "context": {
+    "user_id": "usr-demo-park",
+    "school_id": "sch-demo-hanbit",
+    "assignment_id": "asg-science",
+    "session_epoch": "session-demo-1"
+  },
+  "primary_task": {
+    "id": "task-info-disclosure",
+    "series_id": "series-info-disclosure",
+    "title": "2학기 학교정보공시 자료 확정",
+    "next_action": "교무부 학적 자료와 공시 수치를 대조한다",
+    "category": "과학정보",
+    "status": "in_progress",
+    "priority": "critical",
+    "dates": {
+      "recommended_start": "2026-08-18",
+      "official_due": "2026-08-31",
+      "previous_actual": "2025-08-26",
+      "due_in_days": 3
+    },
+    "checklist_done": 2,
+    "checklist_total": 6,
+    "evidence_state": "verified",
+    "version": 7
+  },
+  "urgent": [
+    {
+      "id": "task-info-disclosure",
+      "series_id": "series-info-disclosure",
+      "title": "2학기 학교정보공시 자료 확정",
+      "next_action": "교무부 학적 자료와 공시 수치를 대조한다",
+      "category": "과학정보",
+      "status": "in_progress",
+      "priority": "critical",
+      "dates": {
+        "recommended_start": "2026-08-18",
+        "official_due": "2026-08-31",
+        "previous_actual": "2025-08-26",
+        "due_in_days": 3
+      },
+      "checklist_done": 2,
+      "checklist_total": 6,
+      "evidence_state": "verified",
+      "version": 7
+    },
+    {
+      "id": "task-ai-week",
+      "series_id": "series-ai-week",
+      "title": "2026 AI 교육주간 운영",
+      "next_action": "강사와 예산을 확인하고 내부결재 초안을 만든다",
+      "category": "과학정보",
+      "status": "in_progress",
+      "priority": "high",
+      "dates": {
+        "recommended_start": "2026-08-24",
+        "official_due": "2026-09-02",
+        "previous_actual": "2025-08-24",
+        "due_in_days": 5
+      },
+      "checklist_done": 3,
+      "checklist_total": 7,
+      "evidence_state": "review_required",
+      "version": 7
+    }
+  ],
+  "this_month": [
+    {
+      "id": "task-info-disclosure",
+      "series_id": "series-info-disclosure",
+      "title": "2학기 학교정보공시 자료 확정",
+      "next_action": "교무부 학적 자료와 공시 수치를 대조한다",
+      "category": "과학정보",
+      "status": "in_progress",
+      "priority": "critical",
+      "dates": {
+        "recommended_start": "2026-08-18",
+        "official_due": "2026-08-31",
+        "previous_actual": "2025-08-26",
+        "due_in_days": 3
+      },
+      "checklist_done": 2,
+      "checklist_total": 6,
+      "evidence_state": "verified",
+      "version": 7
+    },
+    {
+      "id": "task-ai-week",
+      "series_id": "series-ai-week",
+      "title": "2026 AI 교육주간 운영",
+      "next_action": "강사와 예산을 확인하고 내부결재 초안을 만든다",
+      "category": "과학정보",
+      "status": "in_progress",
+      "priority": "high",
+      "dates": {
+        "recommended_start": "2026-08-24",
+        "official_due": "2026-09-02",
+        "previous_actual": "2025-08-24",
+        "due_in_days": 5
+      },
+      "checklist_done": 3,
+      "checklist_total": 7,
+      "evidence_state": "review_required",
+      "version": 7
+    }
+  ],
+  "next_thirty_days": [
+    {
+      "id": "task-device-audit",
+      "series_id": "series-device-audit",
+      "title": "디지털기기 관리 실태 점검",
+      "next_action": "학년별 기기 현황 협조 요청을 보낸다",
+      "category": "과학정보",
+      "status": "preparing",
+      "priority": "normal",
+      "dates": {
+        "recommended_start": "2026-09-01",
+        "official_due": "2026-09-18",
+        "previous_actual": "2025-09-12",
+        "due_in_days": 21
+      },
+      "checklist_done": 0,
+      "checklist_total": 5,
+      "evidence_state": "review_required",
+      "version": 2
+    }
+  ],
+  "summary_links": [
+    {
+      "id": "urgent",
+      "label": "지금 해야 할 업무",
+      "count": 2,
+      "as_of": "2026-08-28T09:00:00+09:00",
+      "target": "/tasks",
+      "query": { "window": "urgent" }
+    },
+    {
+      "id": "preparing",
+      "label": "준비 시작할 업무",
+      "count": 3,
+      "as_of": "2026-08-28T09:00:00+09:00",
+      "target": "/tasks",
+      "query": { "status": "preparing" }
+    },
+    {
+      "id": "new_documents",
+      "label": "새로 온 관련 공문",
+      "count": 3,
+      "as_of": "2026-08-28T09:00:00+09:00",
+      "target": "/documents",
+      "query": { "received": "this-week" }
+    },
+    {
+      "id": "completed",
+      "label": "올해 완료한 업무",
+      "count": 4,
+      "as_of": "2026-08-28T09:00:00+09:00",
+      "target": "/handover",
+      "query": { "status": "complete", "academicYear": "2026" }
+    }
+  ]
+}

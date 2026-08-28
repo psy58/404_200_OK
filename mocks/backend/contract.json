@@ -1,0 +1,47 @@
+{
+  "schema_version": "ui-api-boundary-v2.mock.1",
+  "contract_status": "MOCK_ONLY",
+  "generated_at": "2026-08-28T09:00:00+09:00",
+  "execution_boundary": {
+    "mode": "mock",
+    "persistence": "session_only",
+    "label": "시연 데이터 · 서버 저장 없음"
+  },
+  "session": {
+    "user": {
+      "id": "usr-demo-park",
+      "display_name": "박새연",
+      "role_label": "교사 · 과학정보부"
+    },
+    "school": {
+      "id": "sch-demo-hanbit",
+      "name": "한빛중학교"
+    },
+    "assignments": [
+      {
+        "id": "asg-science",
+        "name": "과학정보부장",
+        "description": "2026.03.01~ · 서버 허용 시연값",
+        "task_count": 12,
+        "active": true
+      },
+      {
+        "id": "asg-gifted",
+        "name": "영재교육",
+        "description": "2026.03.01~ · 서버 허용 시연값",
+        "task_count": 9,
+        "active": false
+      },
+      {
+        "id": "asg-special-tf",
+        "name": "특수학급 설치 TF",
+        "description": "2026.06.10~ · 전례 없는 신규 업무",
+        "task_count": 4,
+        "active": false
+      }
+    ],
+    "active_assignment_id": "asg-science",
+    "session_epoch": "session-demo-1",
+    "version": 1
+  }
+}

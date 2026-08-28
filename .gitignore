@@ -1,0 +1,40 @@
+# 로컬 참고 문서
+/docs/
+
+# 의존성
+/node_modules/
+
+# 빌드 산출물
+/dist/
+/dist-ssr/
+
+# 로컬 설정
+*.local
+
+# TypeScript 빌드 캐시
+*.tsbuildinfo
+
+# OS 파일
+.DS_Store
+
+# 환경변수
+.env
+.env.*
+!.env.example
+
+# AI 도구 로컬 상태
+/.codex/
+/.agents/
+
+# 로컬 디자인 참고 이미지
+/KakaoTalk_Image_*.png
+
+# 백엔드 Python 로컬 환경과 캐시
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# 변환·색인 결과와 개인정보 포함 원본
+/backend/data/
+/업무목록/
