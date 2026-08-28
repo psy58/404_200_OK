@@ -1,13 +1,10 @@
-import type { RequestContext } from "@/api/ui-api-boundary-v2";
 import { adaptDocument } from "@/domain/adapters";
+import { RawDocumentsResponseSchema } from "@/domain/raw-schemas";
 import type { DocumentItem } from "@/domain/types";
-import { getFrontendApiService } from "./apiClient";
-import { requestScope, runApiRequest } from "./requestExecution";
+import { fetchMock } from "./mockClient";
+import { getHakmatongDocuments } from "@/state/hakmatongDemo";
 
-export async function getDocuments(context: RequestContext, signal?: AbortSignal): Promise<DocumentItem[]> {
-  return runApiRequest(requestScope(["documents", context.sessionEpoch, context.assignmentId]), signal, async (requestSignal) => {
-    const api = await getFrontendApiService();
-    const result = await api.listDocuments(context, { signal: requestSignal });
-    return result.items.map(adaptDocument);
-  });
+export async function getDocuments(signal?: AbortSignal): Promise<DocumentItem[]> {
+  const raw = await fetchMock("/mocks/backend/documents.json", RawDocumentsResponseSchema, { signal });
+  return [...raw.items.map(adaptDocument), ...getHakmatongDocuments()];
 }

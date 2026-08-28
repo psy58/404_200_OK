@@ -49,15 +49,6 @@ _NOISE_WORDS = frozenset(
 
 MAX_NAME_TOKENS = 3
 
-# 용어집 데이터 파일이 아직 준비되지 않은 API/테스트 환경에서도 반드시 같은
-# 대표 이름으로 묶여야 하는 핵심 사업명이다. 긴 이름부터 확인한다.
-_CANONICAL_NAMES = (
-    "과학중점학교",
-    "토요과학교실",
-    "AI 중점학교",
-    "개방형 실험실",
-)
-
 
 @dataclass(frozen=True)
 class BusinessKey:
@@ -130,11 +121,8 @@ def business_key(
     if not title or not title.strip():
         return None
 
-    canonical = next((name for name in _CANONICAL_NAMES if name.replace(" ", "") in title.replace(" ", "")), None)
     found = glossary.find_terms(title, terms if terms is not None else glossary.cached())
-    if canonical:
-        name = canonical
-    elif found:
+    if found:
         # 여러 개가 걸리면 가장 긴(구체적인) 이름을 쓴다
         name = max((term.term for term in found), key=len)
     else:

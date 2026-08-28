@@ -1,54 +1,42 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { updateChecklistItem } from "@/services/checklistService";
-import { useAssignment } from "@/state/AssignmentContext";
+import { toggleChecklistItem } from "@/services/checklistService";
 import { useToast } from "@/state/ToastContext";
 import { qk } from "@/state/queryKeys";
 import { CheckIcon } from "@/lib/icons";
 import type { ChecklistItem, TaskDetail } from "@/domain/types";
-import type { MutationContextToken } from "@/api/mutation-context.js";
 
-interface ToggleInput { itemId: string; complete: boolean; expectedVersion: number }
-interface MutationSnapshot {
-  previous?: TaskDetail;
-  key: readonly unknown[];
-  token: MutationContextToken;
-}
-
-/** F07 optimistic update with version/idempotency and exact rollback. */
+/**
+ * F07 업무 체크리스트. 디자인 마크업은 유지하고 저장 이벤트만 실제
+ * 백엔드 서비스에 연결한다. 실패 시 낙관적 갱신을 되돌린다.
+ */
 export function ChecklistSection({ taskId, checklist }: { taskId: string; checklist: ChecklistItem[] }) {
   const queryClient = useQueryClient();
-  const { context, captureMutationContext, isMutationContextCurrent } = useAssignment();
   const { toast } = useToast();
-  const done = checklist.filter((item) => item.done).length;
+  const done = checklist.filter((c) => c.done).length;
 
-  const mutation = useMutation<TaskDetail, Error, ToggleInput, MutationSnapshot>({
-    mutationFn: (input) => {
-      if (!context) throw new Error("담당 업무 맥락을 확인해 주세요.");
-      return updateChecklistItem(context, { taskId, ...input });
+  const mutation = useMutation<TaskDetail, Error, string, { previous?: TaskDetail }>({
+    mutationFn: (itemId: string) => {
+      const target = checklist.find((item) => item.id === itemId);
+      return toggleChecklistItem(taskId, itemId, !(target?.done ?? false));
     },
-    onMutate: async (input) => {
-      if (!context) throw new Error("담당 업무 맥락을 확인해 주세요.");
-      const mutationKey = qk.taskDetail(context, taskId);
-      const token = captureMutationContext(context, ["checklist", taskId]);
-      await queryClient.cancelQueries({ queryKey: mutationKey });
-      const previous = queryClient.getQueryData<TaskDetail>(mutationKey);
+    onMutate: async (itemId: string) => {
+      await queryClient.cancelQueries({ queryKey: qk.taskDetail(taskId) });
+      const previous = queryClient.getQueryData<TaskDetail>(qk.taskDetail(taskId));
       if (previous) {
-        queryClient.setQueryData<TaskDetail>(mutationKey, {
+        queryClient.setQueryData<TaskDetail>(qk.taskDetail(taskId), {
           ...previous,
-          checklist: previous.checklist.map((item) => item.id === input.itemId ? { ...item, done: input.complete } : item),
+          checklist: previous.checklist.map((c) => (c.id === itemId ? { ...c, done: !c.done } : c)),
         });
       }
-      return { previous, key: mutationKey, token };
+      return { previous };
     },
-    onSuccess: (saved, _input, snapshot) => {
-      if (!snapshot || !isMutationContextCurrent(snapshot.token)) return;
-      queryClient.setQueryData(snapshot.key, saved);
-      if (context) queryClient.invalidateQueries({ queryKey: qk.tasks(context) });
+    onSuccess: (detail) => {
+      queryClient.setQueryData(qk.taskDetail(taskId), detail);
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
     },
-    onError: (_error, _input, rollback) => {
-      if (!rollback || !isMutationContextCurrent(rollback.token)) return;
-      if (rollback.previous) queryClient.setQueryData(rollback.key, rollback.previous);
-      toast("저장하지 못했습니다. 이전 상태로 되돌렸습니다.", "error");
+    onError: (_err, _itemId, context) => {
+      if (context?.previous) queryClient.setQueryData(qk.taskDetail(taskId), context.previous);
+      toast("저장에 실패했습니다. 이전 상태로 되돌렸습니다.");
     },
   });
 
@@ -61,19 +49,22 @@ export function ChecklistSection({ taskId, checklist }: { taskId: string; checkl
         </span>
         <span className="t-cap">완료 기록은 인수인계 초안에 포함됩니다</span>
       </div>
-      {checklist.map((item) => (
-        <div className={`check${item.done ? " on" : ""}`} key={item.id}>
+      {checklist.map((c) => (
+        <div className={`check${c.done ? " on" : ""}`} key={c.id}>
           <button
             className="cbox"
             role="checkbox"
-            aria-checked={item.done}
-            aria-label={item.text}
-            disabled={mutation.isPending || !context}
-            onClick={() => mutation.mutate({ itemId: item.id, complete: !item.done, expectedVersion: item.version })}
+            aria-checked={c.done}
+            aria-label={c.text}
+            disabled={mutation.isPending}
+            onClick={() => mutation.mutate(c.id)}
           >
-            {item.done ? <CheckIcon /> : null}
+            {c.done ? <CheckIcon /> : null}
           </button>
-          <span><span className="ct">{item.text}</span>{item.note && <span className="cm">{item.note}</span>}</span>
+          <span>
+            <span className="ct">{c.text}</span>
+            {c.note && <span className="cm">{c.note}</span>}
+          </span>
         </div>
       ))}
     </section>

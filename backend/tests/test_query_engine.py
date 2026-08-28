@@ -11,7 +11,7 @@ from app.models.query import QueryRequest
 from app.rag import answer as answer_module
 from app.rag.retriever import Hit
 from app.services import query_service
-from app.services.query_service import RagQueryEngine, UnavailableQueryEngine
+from app.services.query_service import RagQueryEngine, SampleQueryEngine
 
 
 class FakeSearcher:
@@ -136,22 +136,17 @@ def test_query_ids_are_unique_per_answer() -> None:
     assert first != second
 
 
-def test_query_engine_fails_closed_without_external_ai_approval_key_or_index(monkeypatch) -> None:
-    """실제 자원이 없을 때 예시 성공을 실제 답변처럼 돌려주지 않는다."""
-    monkeypatch.setattr(query_service.settings, "external_ai_allowed", lambda: False)
-    assert isinstance(query_service.build_engine(), UnavailableQueryEngine)
-
-    monkeypatch.setattr(query_service.settings, "external_ai_allowed", lambda: True)
+def test_sample_engine_is_used_without_a_key_or_index(monkeypatch) -> None:
+    """키나 벡터 저장소가 없으면 예시 응답으로 뜬다. 서버가 죽지 않는다."""
     monkeypatch.setattr(query_service.settings, "openai_api_key", lambda: None)
-    assert isinstance(query_service.build_engine(), UnavailableQueryEngine)
+    assert isinstance(query_service.build_engine(), SampleQueryEngine)
 
     monkeypatch.setattr(query_service.settings, "openai_api_key", lambda: "sk-test")
     monkeypatch.setattr(query_service, "vectors_ready", lambda: False)
-    assert isinstance(query_service.build_engine(), UnavailableQueryEngine)
+    assert isinstance(query_service.build_engine(), SampleQueryEngine)
 
 
-def test_broken_search_engine_does_not_fall_back_to_fake_success(monkeypatch) -> None:
-    monkeypatch.setattr(query_service.settings, "external_ai_allowed", lambda: True)
+def test_broken_search_engine_falls_back_instead_of_failing(monkeypatch) -> None:
     monkeypatch.setattr(query_service.settings, "openai_api_key", lambda: "sk-test")
     monkeypatch.setattr(query_service, "vectors_ready", lambda: True)
     monkeypatch.setattr(
@@ -159,7 +154,7 @@ def test_broken_search_engine_does_not_fall_back_to_fake_success(monkeypatch) ->
         "open",
         classmethod(lambda cls: (_ for _ in ()).throw(RuntimeError("저장소 없음"))),
     )
-    assert isinstance(query_service.build_engine(), UnavailableQueryEngine)
+    assert isinstance(query_service.build_engine(), SampleQueryEngine)
 
 
 def test_api_uses_whatever_engine_is_installed(client) -> None:

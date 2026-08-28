@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQueries } from "@tanstack/react-query";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { getAnnualTasks } from "@/services/tasksService";
+import { getTasks } from "@/services/tasksService";
 import { useAssignment } from "@/state/AssignmentContext";
 import { qk } from "@/state/queryKeys";
-import { QueryBoundary } from "@/components/ui/QueryBoundary";
 import { formatShort, MONTHS } from "@/lib/dates";
 import type { TaskInstance, TaskStatus } from "@/domain/types";
 import { taskNavigationState, type TaskNavigationState } from "@/lib/taskNavigation";
@@ -24,9 +23,8 @@ function barClass(status: TaskStatus): string {
 }
 
 export function AnnualMapPage() {
-  const { activeAssignment, context, school } = useAssignment();
+  const { selectedAssignments, selectedAssignmentIds } = useAssignment();
   const navigate = useNavigate();
-  const academicYear = school?.academicYear ?? new Date().getFullYear();
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const restoreState = location.state as { restore?: TaskNavigationState } | null;
@@ -39,34 +37,38 @@ export function AnnualMapPage() {
     else if (restoreState?.restore?.scrollY) window.scrollTo({ top: restoreState.restore.scrollY, behavior: "auto" });
   }, [focusTaskId, restoreState]);
 
-  const tasksQuery = useQuery({
-    queryKey: context ? qk.annual(context, academicYear) : ["annual", "disabled"],
-    queryFn: ({ signal }) => getAnnualTasks(context!, academicYear, signal),
-    enabled: !!context,
+  const taskQueries = useQueries({
+    queries: selectedAssignmentIds.map((assignmentId) => ({
+      queryKey: qk.tasks(assignmentId),
+      queryFn: ({ signal }: { signal: AbortSignal }) => getTasks(assignmentId, signal),
+    })),
   });
+  const tasks = taskQueries.flatMap((query) => query.data ?? []);
+  const isPending = taskQueries.some((query) => query.isPending);
+  const failedQuery = taskQueries.find((query) => query.isError);
 
   const categories = useMemo(
-    () => Array.from(new Set((tasksQuery.data ?? []).map((t) => t.category))),
-    [tasksQuery.data],
+    () => Array.from(new Set(tasks.map((t) => t.category))),
+    [tasks],
   );
 
-  const filtered = (tasksQuery.data ?? []).filter(
+  const filtered = tasks.filter(
     (t) => (statusFilter === "all" || t.status === statusFilter) && (!categoryFilter || t.category === categoryFilter),
   );
 
   const statusCounts = useMemo(() => {
-    const all = tasksQuery.data ?? [];
+    const all = tasks;
     const counts: Record<TaskStatus, number> = { in_progress: 0, upcoming: 0, planned: 0, complete: 0 };
     all.forEach((t) => counts[t.status]++);
     return counts;
-  }, [tasksQuery.data]);
+  }, [tasks]);
 
   return (
     <div className="stack">
       <div className="page-head">
         <div>
           <span className="eyebrow">
-            {activeAssignment?.name ?? ""} · {activeAssignment ? `${academicYear}학년도` : ""}
+            {selectedAssignments.map((assignment) => assignment.name).join(" · ")} · 2026학년도
           </span>
           <h1 className="t-display" style={{ marginTop: 9 }}>
             연간 업무 지도
@@ -77,7 +79,7 @@ export function AnnualMapPage() {
 
       <div className="filters">
         <button className="fchip" aria-pressed={statusFilter === "all"} onClick={() => setStatusFilter("all")}>
-          전체 <span className="c num">{tasksQuery.data?.length ?? 0}</span>
+          전체 <span className="c num">{tasks.length}</span>
         </button>
         {(Object.keys(STATUS_LABEL) as TaskStatus[]).map((s) => (
           <button key={s} className="fchip" aria-pressed={statusFilter === s} onClick={() => setStatusFilter(s)}>
@@ -97,8 +99,7 @@ export function AnnualMapPage() {
         ))}
       </div>
 
-      <QueryBoundary query={tasksQuery} isEmpty={() => filtered.length === 0} emptyTitle="조건에 맞는 업무가 없습니다">
-        {() => (
+      {isPending ? <div className="card card-pad">업무 지도를 불러오는 중입니다.</div> : failedQuery ? <div className="card card-pad">업무 지도를 불러오지 못했습니다.</div> : (
           <section className="card card-pad">
             <div className="map-scroll">
               <div className="map-inner">
@@ -157,7 +158,6 @@ export function AnnualMapPage() {
             </div>
           </section>
         )}
-      </QueryBoundary>
 
       <div className="mlist" style={{ display: filtered.length ? undefined : "none" }}>
         {filtered.map((t) => (

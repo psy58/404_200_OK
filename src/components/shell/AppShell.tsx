@@ -1,28 +1,23 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Outlet, useMatch, useNavigate } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
+import { AssignmentModal } from "./AssignmentModal";
+import { NewAssignmentModal } from "./NewAssignmentModal";
+import { NotificationPanel } from "./NotificationPanel";
+import { AssistantPanel } from "./AssistantPanel";
+import { UploadModal } from "@/components/upload/UploadModal";
+import { NoteComposerModal } from "@/components/notes/NoteComposerModal";
+import { ReviewModal } from "@/components/notes/ReviewModal";
 import { useOverlay } from "@/state/OverlayContext";
 import { AssistantIcon } from "@/lib/icons";
-import { useAssignment } from "@/state/AssignmentContext";
-import { ErrorState, LoadingBlock } from "@/components/ui/States";
 
 const ROUTE_SHORTCUTS: Record<string, string> = { h: "/home", m: "/map", d: "/docs", n: "/notes", i: "/handover" };
-
-// Upload/analysis, notifications and AI stay out of the initial shell bundle.
-const AssignmentModal = lazy(() => import("./AssignmentModal").then((module) => ({ default: module.AssignmentModal })));
-const NewTaskModal = lazy(() => import("@/components/tasks/NewTaskModal").then((module) => ({ default: module.NewTaskModal })));
-const NotificationPanel = lazy(() => import("./NotificationPanel").then((module) => ({ default: module.NotificationPanel })));
-const AssistantPanel = lazy(() => import("./AssistantPanel").then((module) => ({ default: module.AssistantPanel })));
-const UploadModal = lazy(() => import("@/components/upload/UploadModal").then((module) => ({ default: module.UploadModal })));
-const NoteComposerModal = lazy(() => import("@/components/notes/NoteComposerModal").then((module) => ({ default: module.NoteComposerModal })));
-const ReviewModal = lazy(() => import("@/components/notes/ReviewModal").then((module) => ({ default: module.ReviewModal })));
 
 export function AppShell() {
   const [navOpen, setNavOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem("gam-sidebar-collapsed") === "true");
   const { overlay, open, close } = useOverlay();
-  const { status, errorMessage } = useAssignment();
   const navigate = useNavigate();
   const taskMatch = useMatch("/tasks/:taskId");
   const gPressed = useRef(false);
@@ -76,19 +71,12 @@ export function AppShell() {
 
   return (
     <div className={`app${sidebarCollapsed ? " side-collapsed" : ""}`}>
-      <a className="skip-link" href="#view" onClick={() => document.getElementById("view")?.focus()}>본문으로 건너뛰기</a>
       <div className="side-scrim" onClick={() => setNavOpen(false)} />
       <Sidebar collapsed={sidebarCollapsed} onNavigate={() => setNavOpen(false)} onToggleCollapse={() => setSidebarCollapsed((value) => !value)} />
       <div className="main">
-        <Topbar navOpen={navOpen} onToggleNav={() => setNavOpen((value) => !value)} />
+        <Topbar navOpen={navOpen} onToggleNav={() => setNavOpen((v) => !v)} />
         <main className="view" id="view" tabIndex={-1}>
-          {status === "loading" || status === "switching" ? (
-            <LoadingBlock label={status === "switching" ? "담당 업무를 전환하는 중" : "학교와 담당 업무를 확인하는 중"} />
-          ) : status === "error" ? (
-            <ErrorState description={errorMessage ?? "세션 정보를 확인하지 못했습니다."} />
-          ) : (
-            <Outlet />
-          )}
+          <Outlet />
         </main>
       </div>
 
@@ -97,15 +85,13 @@ export function AppShell() {
         AI 감
       </button>
 
-      <Suspense fallback={<span className="sr" role="status">기능 화면을 준비하는 중입니다.</span>}>
-        {overlay?.kind === "assign" && <AssignmentModal onClose={close} />}
-        {overlay?.kind === "new-assignment" && <NewTaskModal onClose={close} />}
-        {overlay?.kind === "notifications" && <NotificationPanel onClose={close} />}
-        {overlay?.kind === "assistant" && <AssistantPanel taskId={overlay.taskId} onClose={close} />}
-        {overlay?.kind === "upload" && <UploadModal onClose={close} />}
-        {overlay?.kind === "note" && <NoteComposerModal taskId={overlay.taskId} onClose={close} />}
-        {overlay?.kind === "review" && <ReviewModal onClose={close} />}
-      </Suspense>
+      {overlay?.kind === "assign" && <AssignmentModal onClose={close} />}
+      {overlay?.kind === "new-assignment" && <NewAssignmentModal onClose={close} onNext={() => open("upload")} />}
+      {overlay?.kind === "notifications" && <NotificationPanel onClose={close} />}
+      {overlay?.kind === "assistant" && <AssistantPanel taskId={overlay.taskId} onClose={close} />}
+      {overlay?.kind === "upload" && <UploadModal onClose={close} />}
+      {overlay?.kind === "note" && <NoteComposerModal taskId={overlay.taskId} onClose={close} />}
+      {overlay?.kind === "review" && <ReviewModal onClose={close} />}
     </div>
   );
 }

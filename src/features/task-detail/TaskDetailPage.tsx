@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { getTaskDetail } from "@/services/tasksService";
+import { getTasks, getTaskDetail } from "@/services/tasksService";
 import { getExperienceNotes } from "@/services/notesService";
 import { useAssignment } from "@/state/AssignmentContext";
 import { useOverlay } from "@/state/OverlayContext";
@@ -18,19 +18,18 @@ import { COMMUNITY_POSTS } from "@/features/notes/communityData";
 import { useCommunityLinks } from "@/features/notes/communityLinks";
 import { ChevronRightIcon, FileIcon } from "@/lib/icons";
 import { daysUntil, formatFull } from "@/lib/dates";
-import { getSafeErrorMessage } from "@/services/errorPresentation";
 import type { TaskNavigationState } from "@/lib/taskNavigation";
 
 export function TaskDetailPage() {
   const { taskId = "" } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const { context: requestContext, user } = useAssignment();
+  const { activeAssignmentId } = useAssignment();
   const { open } = useOverlay();
   const linkedCommunityIds = useCommunityLinks();
   const [showContextBar, setShowContextBar] = useState(false);
-  const navigationContext = location.state as TaskNavigationState | null;
-  const backTarget = navigationContext ?? { from: "/home", label: "내 업무", scrollY: 0 };
+  const context = location.state as TaskNavigationState | null;
+  const backTarget = context ?? { from: "/home", label: "내 업무", scrollY: 0 };
 
   useEffect(() => {
     const update = () => setShowContextBar(window.scrollY > 180);
@@ -39,22 +38,24 @@ export function TaskDetailPage() {
     return () => window.removeEventListener("scroll", update);
   }, []);
 
+  const tasksQuery = useQuery({
+    queryKey: qk.tasks(activeAssignmentId ?? ""),
+    queryFn: ({ signal }) => getTasks(activeAssignmentId ?? "", signal),
+    enabled: !!activeAssignmentId,
+  });
   const detailQuery = useQuery({
-    queryKey: requestContext ? qk.taskDetail(requestContext, taskId) : ["task-detail", "disabled", taskId],
-    queryFn: ({ signal }) => getTaskDetail(requestContext!, taskId, signal),
-    enabled: !!requestContext && !!taskId,
+    queryKey: qk.taskDetail(taskId),
+    queryFn: ({ signal }) => getTaskDetail(taskId, signal),
+    enabled: !!taskId,
   });
-  const notesQuery = useQuery({
-    queryKey: requestContext ? qk.notes(requestContext) : ["notes", "disabled"],
-    queryFn: ({ signal }) => getExperienceNotes(requestContext!, user?.displayName ?? "", signal),
-    enabled: !!requestContext,
-  });
+  const notesQuery = useQuery({ queryKey: qk.notes(), queryFn: ({ signal }) => getExperienceNotes(signal) });
 
-  if (detailQuery.isPending) return <LoadingBlock label="업무 상세를 불러오는 중" />;
-  if (detailQuery.isError) return <ErrorState description={getSafeErrorMessage(detailQuery.error)} onRetry={() => detailQuery.refetch()} />;
+  if (tasksQuery.isPending || detailQuery.isPending) return <LoadingBlock label="업무 상세를 불러오는 중" />;
+  if (tasksQuery.isError) return <ErrorState description={(tasksQuery.error as Error).message} onRetry={() => tasksQuery.refetch()} />;
+  if (detailQuery.isError) return <ErrorState description={(detailQuery.error as Error).message} onRetry={() => detailQuery.refetch()} />;
 
-  const detail = detailQuery.data;
-  if (!detail) {
+  const task = tasksQuery.data.find((t) => t.id === taskId);
+  if (!task) {
     return (
       <div className="stack">
         <Link className="btn btn-ghost btn-sm" to="/home" style={{ alignSelf: "flex-start", marginLeft: -10 }}>
@@ -69,9 +70,7 @@ export function TaskDetailPage() {
     );
   }
 
-  // The dedicated detail response is the existence/summary source of truth;
-  // annual-only tasks must not depend on the narrower home-list union.
-  const task = detail.task;
+  const detail = detailQuery.data;
   const taskNotes = (notesQuery.data ?? []).filter((n) => n.taskId === task.id);
   const communityPosts = COMMUNITY_POSTS.filter((post) => post.taskId === task.id && linkedCommunityIds.includes(post.id));
 
@@ -136,7 +135,13 @@ export function TaskDetailPage() {
         </div>
       </section>
 
-      <div className="two">
+      {!detail ? (
+        <EmptyState
+          title="이 업무의 상세 기록이 아직 없습니다"
+          description="체크리스트·근거·전년도 처리 사례는 문서 분석이 진행되면 채워집니다."
+        />
+      ) : (
+        <div className="two">
           <div className="stack" style={{ gap: 22 }}>
             <ChecklistSection taskId={task.id} checklist={detail.checklist} />
             <EvidenceChain chain={detail.evidenceChain} guidelineChangeNotice={detail.guidelineChangeNotice} />
@@ -189,7 +194,8 @@ export function TaskDetailPage() {
               )}
             </section>
           </div>
-      </div>
+        </div>
+      )}
       {showContextBar && (
         <div className="task-context-bar">
           <button className="btn btn-ghost btn-sm" onClick={() => navigate(backTarget.from, { state: { restore: backTarget } })}><span className="back-arrow"><ChevronRightIcon /></span>{backTarget.label}</button>

@@ -12,8 +12,8 @@ API 계약은 이 파일 바깥에서 그대로 유지된다.
 엔진이 둘이다.
 
     RagQueryEngine     실제 검색과 LLM. 벡터 저장소와 API 키가 있을 때 쓴다.
-    SampleQueryEngine  고정 응답. 프론트 Mock과 계약 테스트에서만 명시적으로 쓴다.
-                       런타임 자원이 없을 때는 성공으로 위장하지 않는다.
+    SampleQueryEngine  고정 응답. 저장소나 키가 없을 때, 그리고 프론트 Mock과
+                       계약 테스트에서 쓴다. 계약을 확정할 때 만든 그 응답이다.
 """
 
 import uuid
@@ -24,7 +24,6 @@ from .. import settings
 from ..models.common import DocumentResult, NextAction, StageRef, TimelineEntry, WorkflowRef
 from ..models.common import StepStatus
 from ..models.query import QueryData, QueryRequest, QueryResponse
-from ..errors import ApiError
 from . import workflow_matcher, workflow_service
 
 MAX_DOCUMENTS = 5
@@ -189,14 +188,27 @@ class RagQueryEngine:
     def answer(self, request: QueryRequest) -> QueryResponse:
         from ..rag import answer as answer_module
 
+        from . import frontend_service
+
         # 특정 업무를 보며 묻는 질문이면 그 사업의 문서 안에서만 찾는다.
         # 전체를 뒤지면 이름만 비슷한 다른 사업 문서가 근거로 끼어든다.
+        # 직접 추가한 새 업무(cust_)는 작년 기록이 없으므로 범위가 업로드
+        # 문서가 되고, 전년도 공문으로 되돌아가지 않는다.
+        new_task = frontend_service.custom_task_title(request.workflow_id or "")
         scope, flow = _task_scope(request.workflow_id)
+        if new_task is not None and not scope:
+            # 새 업무인데 올린 자료가 없다. 전년도 공문을 뒤져 봐야 다른
+            # 사업 이야기만 나온다 — 솔직하게 자료를 청한다.
+            return QueryResponse(
+                query_id=f"qry_{uuid.uuid4().hex[:8]}",
+                message=answer_module.NO_UPLOAD_MESSAGE,
+                data=QueryData(),
+            )
         if scope:
             hits = self.searcher.search(
                 request.query, k=MAX_DOCUMENTS, document_ids=scope
             )
-            if len(hits) < 2:
+            if len(hits) < 2 and new_task is None:
                 # 이 업무 문서에 답이 없다. 범위를 풀어 전체에서 찾되,
                 # 흐름은 그대로 이 업무의 작년 기록을 쓴다.
                 hits = self.searcher.search(request.query, k=MAX_DOCUMENTS)
@@ -224,11 +236,9 @@ class RagQueryEngine:
             )
 
         try:
-            from . import frontend_service
-
             message = answer_module.write_message(
                 self.llm, request.query, hits, context, timeline,
-                today=frontend_service._today(),
+                today=frontend_service._today(), new_task=new_task,
             )
         except Exception as exc:
             # 문장을 못 만들어도 근거 문서는 돌려준다. 화면이 비지 않는다.
@@ -319,16 +329,6 @@ class SampleQueryEngine:
         )
 
 
-class UnavailableQueryEngine:
-    """실제 검색/LLM이 준비되지 않았을 때 예시 성공 대신 명시적으로 실패한다."""
-
-    def __init__(self, reason: str) -> None:
-        self.reason = reason
-
-    def answer(self, request: QueryRequest) -> QueryResponse:
-        raise ApiError(503, "query_engine_unavailable", self.reason)
-
-
 # --- 엔진 고르기 -------------------------------------------------------------
 
 _engine: QueryEngine | None = None
@@ -339,22 +339,14 @@ def vectors_ready() -> bool:
 
 
 def build_engine() -> QueryEngine:
-    """명시적으로 외부 AI를 허용했고 실제 자원이 있을 때만 RAG를 연다."""
-    if not settings.external_ai_allowed():
-        return UnavailableQueryEngine(
-            "외부 AI 전송이 승인되지 않아 업무 도우미를 실행하지 않았습니다."
-        )
+    """쓸 수 있으면 실제 엔진, 아니면 고정 응답 엔진."""
     if not (settings.openai_api_key() and vectors_ready()):
-        return UnavailableQueryEngine(
-            "실제 검색 인덱스 또는 API 키가 없어 업무 도우미를 실행하지 않았습니다."
-        )
+        return SampleQueryEngine()
     try:
         return RagQueryEngine.open()
     except (Exception, SystemExit) as exc:
-        print(f"[query] 검색 엔진을 열지 못했습니다: {exc}")
-        return UnavailableQueryEngine(
-            "검색 엔진을 시작하지 못해 업무 도우미를 실행하지 않았습니다."
-        )
+        print(f"[query] 검색 엔진을 열지 못해 예시 응답으로 답합니다: {exc}")
+        return SampleQueryEngine()
 
 
 def get_engine() -> QueryEngine:

@@ -9,8 +9,8 @@
 들어오면 두 인덱스에서 근거를 찾아 LLM이 안내 문장을 만든다. 나머지 6개
 엔드포인트는 예시 데이터로 동작한다(계약은 확정, v0.2).
 
-`/query`는 `ALLOW_EXTERNAL_AI=true`, 실제 벡터 저장소, API 키가 모두 있을 때만
-외부 AI를 호출한다. 하나라도 없으면 예시 성공 대신 503 오류로 정직하게 실패한다.
+벡터 저장소나 API 키가 없으면 `/query`도 예시 응답으로 답한다. 프론트 개발자는
+아무것도 준비하지 않아도 서버를 띄울 수 있다.
 
 | 메서드 | 경로 |
 |---|---|
@@ -173,7 +173,7 @@ cd backend
 
 | 형식 | 처리 |
 |---|---|
-| pdf, hwpx, xlsx, xls, pptx, docx, html, zip | markitdown (markit_down_hwpx 포크) |
+| pdf, hwpx, xlsx, xls, pptx, docx, html, zip | markitdown ([markit_down_hwpx 포크](https://github.com/llA1ll/markitdown_hwpx) — requirements-ingest.txt가 GitHub에서 바로 설치) |
 | hwp (구버전) | 한글 오피스로 HWPX를 만든 뒤 markitdown ([hwp_com.py](backend/app/ingest/hwp_com.py)) |
 | ozd, jpg, png | 지원하지 않음. 이유를 남기고 건너뛴다 |
 
@@ -189,8 +189,10 @@ cd backend
 2. `pywin32` (requirements-ingest.txt에 들어 있다)
 3. **보안 모듈 등록** — 없으면 문서를 열 때마다 대화상자가 떠서 자동화가 멈춘다.
    레지스트리 `HKCU\Software\HNC\HwpAutomation\Modules`에 문자열 값
-   `FilePathCheckerModule`을 만들고 `markit_down_hwpx/FilePathCheckerModule.dll`의
-   전체 경로를 넣는다. (관리자 권한은 필요 없다.)
+   `FilePathCheckerModule`을 만들고 `FilePathCheckerModule.dll`의 전체 경로를 넣는다.
+   (관리자 권한은 필요 없다.) 이 DLL은 pip 설치에는 딸려 오지 않으므로,
+   [markit_down_hwpx 포크](https://github.com/llA1ll/markitdown_hwpx)를 클론해서
+   그 안의 것을 쓴다. 한글 오피스 변환을 안 쓰면 이 단계 전체가 필요 없다.
 
 한글이 없는 환경에서는 자동으로 파이썬 변환([hwp_converter.py](backend/app/ingest/hwp_converter.py))으로
 물러선다. `--no-hancom`으로 강제할 수도 있다. 어느 쪽으로 변환했는지는 각 `.md`
@@ -354,8 +356,11 @@ LLM 호출이 실패해도 근거 문서는 그대로 돌려준다.
 │   └── desktop.py         같은 화면을 창으로 (pywebview)
 ├── frontend/              웹 화면 (index.html, app.js, style.css — 빌드 없음)
 ├── docs/                  API.md, openapi.json, mock/
-├── markit_down_hwpx/      HWPX·문서 → Markdown 변환기 (RAG 인제스트용)
-└── 업무목록/               기안·접수 문서 원본
+└── 업무목록/               기안·접수 문서 원본 (올리지 않음)
+
+문서 → Markdown 변환기는 별도 저장소
+[markit_down_hwpx](https://github.com/llA1ll/markitdown_hwpx)이며,
+`requirements-ingest.txt`가 GitHub에서 바로 설치한다.
 ```
 
 `app/services/` 안쪽이 LangGraph와 Workflow DB로 바뀌어도 `app/models/`의 계약과

@@ -1,56 +1,38 @@
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Modal } from "@/components/ui/Modal";
-import { createExperienceNote } from "@/services/notesService";
-import { getTasks } from "@/services/tasksService";
-import { useAssignment } from "@/state/AssignmentContext";
+import { saveExperienceNote } from "@/services/notesService";
 import { useToast } from "@/state/ToastContext";
 import { qk } from "@/state/queryKeys";
 import { InfoIcon, CheckIcon } from "@/lib/icons";
 import type { NoteVisibility } from "@/domain/types";
+import { KIND_LABEL, type CommunityPostKind } from "@/features/notes/communityData";
 
-const OPTIONS: { value: NoteVisibility; label: string; hint: string }[] = [
+const VISIBILITY_OPTIONS: { value: NoteVisibility; label: string; hint: string }[] = [
   { value: "private", label: "나만 보기", hint: "연말 검토 전까지 비공개" },
   { value: "handover", label: "후임자 전달", hint: "인수인계 전달 후보" },
   { value: "organization", label: "학교 조직지식", hint: "승인 후 학교에 축적" },
 ];
 
+/**
+ * F10 경험 메모 작성 (최소형, "선생님들의 감").
+ * 표현은 디자인 계약을 유지하고 저장 이벤트만 실제 서비스에 연결한다.
+ */
 export function NoteComposerModal({ taskId, onClose }: { taskId?: string; onClose: () => void }) {
+  const [kind, setKind] = useState<CommunityPostKind>("tip");
   const [visibility, setVisibility] = useState<NoteVisibility>("private");
   const [body, setBody] = useState("");
-  const [selectedTaskId, setSelectedTaskId] = useState(taskId ?? "");
-  const { context, user, school } = useAssignment();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const tasksQuery = useQuery({
-    queryKey: context ? qk.tasks(context) : ["tasks", "disabled"],
-    queryFn: ({ signal }) => getTasks(context!, signal),
-    enabled: !!context,
-  });
-  const effectiveTaskId = taskId ?? selectedTaskId;
-  const task = tasksQuery.data?.find((item) => item.id === effectiveTaskId);
+
   const mutation = useMutation({
-    mutationFn: () => {
-      if (!context || !user || !school || !task) throw new Error("메모를 연결할 업무를 확인해 주세요.");
-      return createExperienceNote(context, user.displayName, {
-        taskId: task.id,
-        academicYear: school.academicYear,
-        text: body.trim(),
-        visibility,
-        expectedVersion: task.version,
-      });
-    },
-    onSuccess: (notes) => {
-      if (context) {
-        queryClient.setQueryData(qk.notes(context), notes);
-        queryClient.invalidateQueries({ queryKey: qk.tasks(context) });
-        if (task) queryClient.invalidateQueries({ queryKey: qk.taskDetail(context, task.id) });
-        if (school) queryClient.invalidateQueries({ queryKey: qk.handover(context, school.academicYear) });
-      }
+    mutationFn: () => saveExperienceNote({ taskId, visibility, body }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: qk.notes() });
       onClose();
-      toast("경험 메모를 서버에 저장했습니다");
+      toast("저장했습니다");
     },
-    onError: () => toast("메모를 저장하지 못했습니다. 작성 내용은 유지됩니다.", "error"),
+    onError: (error: Error) => toast(error.message),
   });
 
   return (
@@ -61,22 +43,81 @@ export function NoteComposerModal({ taskId, onClose }: { taskId?: string; onClos
       description="질문·노하우·자료를 선택한 업무와 함께 나눕니다."
       wide
       onClose={onClose}
-      footer={<><button className="btn btn-quiet" onClick={onClose}>취소</button><button className="btn btn-primary" disabled={!body.trim() || !task || mutation.isPending} onClick={() => mutation.mutate()}>{mutation.isPending ? "연결 중…" : "업무에 연결해 공유"}</button></>}
+      footer={
+        <>
+          <button className="btn btn-quiet" onClick={onClose}>
+            취소
+          </button>
+          <button
+            className="btn btn-primary"
+            disabled={!body.trim() || mutation.isPending}
+            onClick={() => mutation.mutate()}
+          >
+            {mutation.isPending ? "연결 중…" : "업무에 연결해 공유"}
+          </button>
+        </>
+      }
     >
-      {!taskId && (
-        <label className="eyebrow">관련 업무
-          <select value={effectiveTaskId} onChange={(event) => setSelectedTaskId(event.target.value)} style={{ display: "block", width: "100%", marginTop: 10, padding: 12 }}>
-            <option value="">업무를 선택하세요</option>
-            {(tasksQuery.data ?? []).map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
-          </select>
-        </label>
-      )}
-      <span className="eyebrow" style={{ display: "block", marginTop: taskId ? 0 : 18 }}>메모 내용</span>
-      <textarea rows={5} style={{ width: "100%", marginTop: 10, padding: 14, border: "1px solid var(--line)", borderRadius: 11, resize: "vertical", outline: "none", fontSize: 14, lineHeight: 1.7 }} placeholder="예: 운영계획 기안 전에 교감 선생님과 일정을 먼저 협의할 것" value={body} onChange={(event) => setBody(event.target.value)} />
-      <div style={{ marginTop: 20 }}><span className="eyebrow">공개 범위</span><div className="opt-grid" style={{ marginTop: 10, gridTemplateColumns: "1fr 1fr 1fr" }}>
-        {OPTIONS.map((option) => <button key={option.value} className="opt" aria-pressed={visibility === option.value} onClick={() => setVisibility(option.value)}><span className="tick"><CheckIcon /></span><span className="ot">{option.label}</span><span className="om">{option.hint}</span></button>)}
-      </div></div>
-      <div className="notice" style={{ marginTop: 18 }}><InfoIcon /><span>학생·학부모·교직원을 특정할 수 있는 표현은 적지 마세요. 실제 서버 검사는 <strong>BACKEND_REQUIRED</strong>입니다.</span></div>
+      <span className="eyebrow">공유 형식</span>
+      <div className="share-kind-grid">
+        {(["question", "tip", "resource"] as const).map((value) => (
+          <button key={value} className="share-kind" aria-pressed={kind === value} onClick={() => setKind(value)}>
+            <b>{KIND_LABEL[value]}</b>
+            <span>{value === "question" ? "동료에게 묻고 답을 모아요" : value === "tip" ? "짧은 노하우와 주의사항" : "계획서·가정통신문·체크리스트"}</span>
+          </button>
+        ))}
+      </div>
+
+      <span className="eyebrow" style={{ marginTop: 22 }}>내용</span>
+      <textarea
+        rows={5}
+        style={{
+          width: "100%",
+          marginTop: 10,
+          padding: 14,
+          border: "1px solid var(--line)",
+          borderRadius: 11,
+          resize: "vertical",
+          outline: "none",
+          fontSize: 14,
+          lineHeight: 1.7,
+        }}
+        placeholder={kind === "question" ? "예: 자기부담금 가정통신문을 어떻게 안내하셨나요?" : "예: 10월 초부터 학부모 문의가 많아져 추천 기준을 미리 자세히 적어 두는 게 좋았어요."}
+        value={body}
+        onChange={(e) => setBody(e.target.value)}
+        data-task-id={taskId}
+      />
+      <div className="community-fields">
+        <label>업무 태그<select defaultValue={taskId ?? "t11"}><option value="t11">영재교육 › 영재학급 선발·배정</option><option value="t2">과학정보 › AI 교육주간 운영</option><option value="t1">과학정보 › 학교정보공시 자료 확정</option></select></label>
+        <label>학교급<select defaultValue="초등"><option>초등</option><option>중등</option><option>고등</option></select></label>
+        <label>연도<select defaultValue="2026"><option>2026</option><option>2025</option></select></label>
+        <label>자료 유형<select defaultValue={kind === "resource" ? "가정통신문" : "업무 팁"}><option>업무 팁</option><option>질문·답변</option><option>계획서</option><option>가정통신문</option><option>체크리스트</option></select></label>
+        <label>근거 성격<select defaultValue="경험"><option>공식</option><option>경험</option><option>참고</option></select></label>
+      </div>
+      <div style={{ marginTop: 20 }}>
+        <span className="eyebrow">공개 범위</span>
+        <div className="opt-grid" style={{ marginTop: 10, gridTemplateColumns: "1fr 1fr 1fr" }}>
+          {VISIBILITY_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              className="opt"
+              aria-pressed={visibility === opt.value}
+              onClick={() => setVisibility(opt.value)}
+            >
+              <span className="tick"><CheckIcon /></span>
+              <span className="ot">{opt.label}</span>
+              <span className="om">{opt.hint}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="notice" style={{ marginTop: 18 }}>
+        <InfoIcon />
+        <span>
+          학생·학부모·교직원을 특정할 수 있는 표현은 저장 전 검사합니다. 민감한 내용은 <strong>나만 보기</strong>로
+          남기고 연말 검토에서 다시 판단하세요.
+        </span>
+      </div>
     </Modal>
   );
 }

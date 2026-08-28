@@ -1,5 +1,5 @@
 import { Link, NavLink } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQueries } from "@tanstack/react-query";
 import { useAssignment } from "@/state/AssignmentContext";
 import { useOverlay } from "@/state/OverlayContext";
 import { getTasks } from "@/services/tasksService";
@@ -17,17 +17,19 @@ import gamWordmark from "@/assets/brand/gam-wordmark-white.png";
 import gamPersimmon from "@/assets/brand/gam-persimmon-green.png";
 
 export function Sidebar({ collapsed, onNavigate, onToggleCollapse }: { collapsed: boolean; onNavigate?: () => void; onToggleCollapse: () => void }) {
-  const { school, activeAssignment, context, boundary } = useAssignment();
+  const { school, selectedAssignments, selectedAssignmentIds } = useAssignment();
   const { open } = useOverlay();
-  const tasksQuery = useQuery({
-    queryKey: context ? qk.tasks(context) : ["tasks", "disabled"],
-    queryFn: ({ signal }) => getTasks(context!, signal),
-    enabled: !!context,
+  const tasksQueries = useQueries({
+    queries: selectedAssignmentIds.map((assignmentId) => ({
+      queryKey: qk.tasks(assignmentId),
+      queryFn: ({ signal }: { signal: AbortSignal }) => getTasks(assignmentId, signal),
+    })),
   });
-  const urgentCount = tasksQuery.data?.filter((t) => t.status === "in_progress" && daysUntil(t.officialDueDate) <= 10).length ?? 0;
+  const selectedTaskCount = selectedAssignments.reduce((count, assignment) => count + assignment.taskCount, 0);
+  const urgentCount = tasksQueries.flatMap((query) => query.data ?? []).filter((task) => task.status === "in_progress" && daysUntil(task.officialDueDate) <= 10).length;
 
   return (
-    <aside className="side" id="primary-navigation">
+    <aside className="side">
       <Link className="brand" to="/" aria-label="GAM 홈으로 이동">
         <img src={gamWordmark} alt="GAM" className="brand-lockup" />
         <span className="brand-mark"><img src={gamPersimmon} alt="GAM 감 아이콘" /></span>
@@ -36,13 +38,15 @@ export function Sidebar({ collapsed, onNavigate, onToggleCollapse }: { collapsed
       <div className="ctx">
         <span className="lab">담당 업무</span>
         <span className="row">
-          <span className="nm">{activeAssignment?.name ?? "선택 필요"}</span>
+          <span className="nm">
+            {selectedAssignments.length ? selectedAssignments.map((assignment) => <span key={assignment.id}>{assignment.name}</span>) : "선택 필요"}
+          </span>
           <button className="chg" onClick={() => open("assign")}>
             변경
           </button>
         </span>
         <span className="mt">
-          {school ? `${school.name} · ${school.academicYear}학년도` : " "} · 업무 {activeAssignment?.taskCount ?? 0}개
+          {school ? `${school.name} · ${school.academicYear}학년도` : " "} · 업무 {selectedTaskCount}개
         </span>
       </div>
 
@@ -69,12 +73,6 @@ export function Sidebar({ collapsed, onNavigate, onToggleCollapse }: { collapsed
           인수인계서
         </NavLink>
       </nav>
-      <div className="side-foot">
-        <p>기록은 이 학교의 조직기억으로 남습니다.</p>
-        <p style={{ marginTop: 6 }}>
-          <span className="em">{boundary?.label ?? "API 경계 확인 중"}</span>
-        </p>
-      </div>
       <button className="side-collapse" onClick={onToggleCollapse} aria-label={collapsed ? "사이드바 펼치기" : "사이드바 접기"} title={collapsed ? "사이드바 펼치기" : "사이드바 접기"}>
         <ChevronRightIcon />
       </button>

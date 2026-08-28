@@ -1,30 +1,31 @@
-import type { SessionContextVM } from "@/api/ui-api-boundary-v2";
-import { adaptAssignment, adaptSchool } from "@/domain/adapters";
+import { adaptAssignment } from "@/domain/adapters";
+import { RawAssignmentSchema, RawAssignmentsResponseSchema } from "@/domain/raw-schemas";
 import type { Assignment, School } from "@/domain/types";
-import { getFrontendApiService } from "./apiClient";
-import { createIdempotencyKey, runApiRequest } from "./requestExecution";
+import { fetchMock, postApi } from "./mockClient";
 
-export interface AssignmentsResult { session: SessionContextVM; school: School; items: Assignment[] }
-
-function adaptResult(session: SessionContextVM): AssignmentsResult {
-  return { session, school: adaptSchool(session.school), items: session.assignments.map(adaptAssignment) };
+export interface AssignmentsResult {
+  school: School;
+  items: Assignment[];
 }
 
 export async function getAssignments(signal?: AbortSignal): Promise<AssignmentsResult> {
-  return runApiRequest("session", signal, async (requestSignal) => {
-    const api = await getFrontendApiService();
-    return adaptResult(await api.getSession({ signal: requestSignal }));
-  });
+  const raw = await fetchMock("/mocks/backend/assignments.json", RawAssignmentsResponseSchema, { signal });
+  return {
+    school: { id: raw.school.id, name: raw.school.name, academicYear: raw.school.academic_year },
+    items: raw.items.map(adaptAssignment),
+  };
 }
 
-export async function switchActiveAssignment(assignmentId: string, expectedVersion: number, signal?: AbortSignal): Promise<AssignmentsResult> {
-  return runApiRequest("session-switch", signal, async (requestSignal) => {
-    const api = await getFrontendApiService();
-    const session = await api.setActiveAssignment(assignmentId, {
-      expectedVersion,
-      idempotencyKey: createIdempotencyKey("assignment-switch"),
-      signal: requestSignal,
-    });
-    return adaptResult(session);
-  });
+/** 담당 업무(분장) 직접 추가 — 백엔드 data/user_state.json 에 남는다. */
+export async function createAssignment(input: {
+  name: string;
+  activeFrom?: string;
+  note?: string;
+}): Promise<Assignment> {
+  const raw = await postApi(
+    "/api/frontend/assignments",
+    { name: input.name, active_from: input.activeFrom || null, note: input.note || null },
+    RawAssignmentSchema,
+  );
+  return adaptAssignment(raw);
 }

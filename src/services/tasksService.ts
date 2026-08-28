@@ -1,61 +1,43 @@
-import type { RequestContext } from "@/api/ui-api-boundary-v2";
-import { adaptTask, adaptTaskDetail } from "@/domain/adapters";
+import { adaptTaskDetail, adaptTask } from "@/domain/adapters";
+import { RawTaskDetailSchema, RawTaskSchema, RawTasksResponseSchema } from "@/domain/raw-schemas";
 import type { TaskDetail, TaskInstance } from "@/domain/types";
-import { getFrontendApiService } from "./apiClient";
-import { createIdempotencyKey, requestScope, runApiRequest } from "./requestExecution";
+import { NotFoundIssue, fetchMock, postApi } from "./mockClient";
+import { HAKMATONG_ID, getHakmatongTasks } from "@/state/hakmatongDemo";
 
-export async function getTasks(context: RequestContext, signal?: AbortSignal): Promise<TaskInstance[]> {
-  return runApiRequest(requestScope(["tasks", context.sessionEpoch, context.assignmentId]), signal, async (requestSignal) => {
-    const api = await getFrontendApiService();
-    const home = await api.getHome(context, { signal: requestSignal });
-    const unique = new Map([...home.urgent, ...home.thisMonth, ...home.nextThirtyDays].map((task) => [task.id, task]));
-    return [...unique.values()].map((task) => adaptTask(task, context));
-  });
+export async function getTasks(assignmentId: string, signal?: AbortSignal): Promise<TaskInstance[]> {
+  if (assignmentId === HAKMATONG_ID) return getHakmatongTasks();
+  const raw = await fetchMock("/mocks/backend/tasks.json", RawTasksResponseSchema, { signal });
+  return raw.items.filter((t) => t.assignment_id === assignmentId).map(adaptTask);
 }
 
-export async function getAnnualTasks(
-  context: RequestContext,
-  academicYear: number,
-  signal?: AbortSignal,
-): Promise<TaskInstance[]> {
-  return runApiRequest(requestScope(["annual", context.sessionEpoch, context.assignmentId, academicYear]), signal, async (requestSignal) => {
-    const api = await getFrontendApiService();
-    const annual = await api.getAnnualMap(context, {
-      filter: { academicYear: String(academicYear) },
-      signal: requestSignal,
-    });
-    return annual.items.map((task) => ({
-      ...adaptTask(task, context),
-      timelineMonthStart: task.monthStart,
-      timelineMonthEnd: task.monthEnd,
-    }));
-  });
-}
-
-export async function getTaskDetail(context: RequestContext, taskId: string, signal?: AbortSignal): Promise<TaskDetail | null> {
+export async function getTaskDetail(taskId: string, signal?: AbortSignal): Promise<TaskDetail | null> {
   try {
-    return await runApiRequest(requestScope(["task", context.sessionEpoch, context.assignmentId, taskId]), signal, async (requestSignal) => {
-      const api = await getFrontendApiService();
-      return adaptTaskDetail(await api.getTaskDetail(context, taskId, { signal: requestSignal }), context);
-    });
-  } catch (error) {
-    if (error instanceof Error && "status" in error && Number((error as Error & { status?: unknown }).status) === 404) return null;
-    throw error;
+    const raw = await fetchMock(`/mocks/backend/task-details/${taskId}.json`, RawTaskDetailSchema, { signal });
+    return adaptTaskDetail(raw);
+  } catch (err) {
+    if (err instanceof NotFoundIssue) return null;
+    throw err;
   }
 }
 
-export async function createTask(
-  context: RequestContext,
-  input: { title: string; startDate?: string; dueDate?: string; category?: string; memo?: string },
-  signal?: AbortSignal,
-): Promise<TaskInstance> {
-  return runApiRequest(requestScope(["task-create", context.sessionEpoch, context.assignmentId]), signal, async (requestSignal) => {
-    const api = await getFrontendApiService();
-    const task = await api.createTask(context, {
-      ...input,
-      idempotencyKey: createIdempotencyKey("task-create"),
-      signal: requestSignal,
-    });
-    return adaptTask(task, context);
-  });
+/** 업무 카드 직접 추가 — 백엔드 data/user_state.json 에 남는다. */
+export async function createTask(input: {
+  title: string;
+  assignmentId?: string;
+  startDate?: string;
+  dueDate?: string;
+  memo?: string;
+}): Promise<TaskInstance> {
+  const raw = await postApi(
+    "/api/frontend/tasks",
+    {
+      title: input.title,
+      assignment_id: input.assignmentId || null,
+      start_date: input.startDate || null,
+      due_date: input.dueDate || null,
+      memo: input.memo || null,
+    },
+    RawTaskSchema,
+  );
+  return adaptTask(raw);
 }

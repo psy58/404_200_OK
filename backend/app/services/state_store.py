@@ -26,6 +26,7 @@ _EMPTY: dict = {
     "read_notifications": [],  # [notification_id]
     "uploads": [],  # [{id, filename, size, uploaded_at, status}]
     "custom_tasks": [],  # 담당자가 직접 추가한 업무 카드
+    "custom_assignments": [],  # 담당자가 직접 추가한 담당 업무(분장)
 }
 
 _lock = threading.Lock()
@@ -152,6 +153,23 @@ def add_custom_task(task: dict) -> dict:
         task["id"] = f"cust_{len(stored) + 1:04d}"
         stored.append(task)
         return task
+
+    return _mutate(update)
+
+
+# --- 직접 추가한 담당 업무 ------------------------------------------------------
+
+
+def custom_assignments() -> list[dict]:
+    return list(_store.load().get("custom_assignments", []))
+
+
+def add_custom_assignment(assignment: dict) -> dict:
+    def update(data: dict):
+        stored = data.setdefault("custom_assignments", [])
+        assignment["id"] = f"duty_{len(stored) + 1:04d}"
+        stored.append(assignment)
+        return assignment
 
     return _mutate(update)
 

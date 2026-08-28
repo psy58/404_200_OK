@@ -1,21 +1,21 @@
-import type { RequestContext } from "@/api/ui-api-boundary-v2";
 import { adaptTaskDetail } from "@/domain/adapters";
+import { RawTaskDetailSchema } from "@/domain/raw-schemas";
 import type { TaskDetail } from "@/domain/types";
-import { getFrontendApiService } from "./apiClient";
-import { createIdempotencyKey, requestScope, runApiRequest } from "./requestExecution";
+import { postApi } from "./mockClient";
 
-export async function updateChecklistItem(
-  context: RequestContext,
-  input: { taskId: string; itemId: string; complete: boolean; expectedVersion: number },
+/**
+ * F07 체크리스트 저장 — 백엔드 data/user_state.json 에 남는다.
+ * 새로고침·재시작해도 유지된다. 응답은 저장 후의 업무 상세 전체다.
+ */
+export async function toggleChecklistItem(
+  taskId: string,
+  itemId: string,
+  done: boolean,
 ): Promise<TaskDetail> {
-  return runApiRequest(requestScope(["checklist", context.sessionEpoch, context.assignmentId, input.taskId]), undefined, async (signal) => {
-    const api = await getFrontendApiService();
-    const detail = adaptTaskDetail(await api.updateChecklist(context, {
-      ...input,
-      idempotencyKey: createIdempotencyKey("checklist-update"),
-      signal,
-    }), context);
-    if (!detail) throw new Error("체크리스트 응답에 업무 정보가 없습니다.");
-    return detail;
-  });
+  const raw = await postApi(
+    `/api/frontend/task-details/${encodeURIComponent(taskId)}/checklist/${encodeURIComponent(itemId)}`,
+    { done },
+    RawTaskDetailSchema,
+  );
+  return adaptTaskDetail(raw);
 }

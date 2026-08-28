@@ -106,6 +106,19 @@ def load(path: Path = DATA_PATH) -> None:
         _ingested_count += 1
 
 
+def uploaded() -> list[tuple[str, dict[str, Any]]]:
+    """담당자가 올린 현재 문서(업로드)만. 올린 순서대로.
+
+    새로 추가한 업무는 작년 사업 기록이 없으므로, 업무 도우미가 전년도
+    공문 대신 이 목록을 검색 범위로 쓴다.
+    """
+    return [
+        (document_id, record)
+        for document_id, record in _documents.items()
+        if record.get("direction") == "uploaded"
+    ]
+
+
 def get(document_id: str) -> dict[str, Any] | None:
     return _documents.get(document_id)
 

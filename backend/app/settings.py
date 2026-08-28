@@ -66,11 +66,6 @@ def openai_api_key() -> str | None:
     return os.environ.get("OPENAI_API_KEY") or None
 
 
-def external_ai_allowed() -> bool:
-    """개인정보가 섞일 수 있는 질문의 외부 전송을 명시적으로 승인했는지 확인한다."""
-    return os.environ.get("ALLOW_EXTERNAL_AI", "").strip().lower() == "true"
-
-
 def require_openai_api_key() -> str:
     key = openai_api_key()
     if not key:
