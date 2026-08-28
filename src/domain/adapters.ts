@@ -4,6 +4,7 @@
  * never see backend wire format and a real backend swap only touches here.
  */
 import type {
+  RawAssistantAnswer,
   RawAssignment,
   RawDocument,
   RawExperienceNote,
@@ -13,6 +14,7 @@ import type {
   RawTaskDetail,
 } from "./raw-schemas";
 import type {
+  AssistantAnswer,
   Assignment,
   ChecklistItem,
   DocumentItem,
@@ -124,5 +126,26 @@ export function adaptTaskDetail(raw: RawTaskDetail): TaskDetail {
     previousTimeline: raw.previous_timeline.map(adaptTimelineEvent),
     relatedForms: raw.related_forms.map(adaptFormRef),
     guidelineChangeNotice: raw.guideline_change_notice,
+  };
+}
+
+export function adaptAssistantAnswer(raw: RawAssistantAnswer): AssistantAnswer {
+  return {
+    queryId: raw.query_id,
+    message: raw.message,
+    sources: raw.data.documents.map((d) => ({
+      documentId: d.document_id,
+      chunkId: d.chunk_id,
+      title: d.title,
+      page: d.page,
+      snippet: d.snippet,
+      relevance: d.relevance,
+    })),
+    timeline: raw.data.timeline.map((t) => ({
+      title: t.title,
+      date: t.date,
+      kind: t.kind,
+      audience: t.audience,
+    })),
   };
 }

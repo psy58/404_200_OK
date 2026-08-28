@@ -43,7 +43,7 @@ python -m venv .venv
 
 | 표식 위치 | 상태 |
 |---|---|
-| AssistantPanel (F14 AI Q&A) | **계약 준비됨** — `POST /api/v1/query` (docs/API.md). task id = workflow_id 그대로 넘기면 근거 문서·타임라인이 함께 온다 |
+| AssistantPanel (F14 AI Q&A) | **연결됨** — 패널이 `POST /api/v1/query` 를 호출한다(`src/services/assistantService.ts`). `npm run dev:backend` 에서 실제 답변·근거·진행 흐름이 나오고, mock 모드에서는 연결 안내 오류가 뜬다 |
 | SearchBox 서버 검색 | `/api/v1/query` 의 검색이 대신함. 클라이언트 필터로도 당장은 충분 |
 | 체크리스트 저장 | 미구현 — `POST /api/v1/workflows/{id}/steps/{step_id}/complete` 가 준비돼 있으니 task-detail 연동 시 교체 |
 | 경험 노트 저장 | 미구현 (빈 목록으로 정직하게 응답) |

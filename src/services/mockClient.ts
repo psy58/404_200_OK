@@ -61,3 +61,48 @@ export async function fetchMock<T>(
   }
   return parsed.data;
 }
+
+/**
+ * Real-backend POST (F14 업무 도우미 등). Same boundary rules as fetchMock:
+ * validate with zod before anything else sees the payload. The backend's
+ * error envelope is {"error": {"message"}} (docs/API.md) — surface that
+ * message so the panel can show a human-readable reason.
+ */
+export async function postApi<T>(
+  path: string,
+  body: unknown,
+  schema: ZodType<T>,
+  opts: { signal?: AbortSignal } = {},
+): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: opts.signal,
+    });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") throw err;
+    throw new ServerIssue("백엔드에 연결할 수 없습니다. `npm run dev:backend`와 백엔드 서버(8000)를 확인하세요.");
+  }
+
+  if (!res.ok) {
+    let message = `요청이 실패했습니다 (${res.status})`;
+    try {
+      const payload = (await res.json()) as { error?: { message?: string } };
+      if (payload?.error?.message) message = payload.error.message;
+    } catch {
+      /* 본문이 JSON이 아니면 상태 코드 메시지 그대로 */
+    }
+    if (res.status === 404) throw new NotFoundIssue(message);
+    throw new ServerIssue(message);
+  }
+
+  const json: unknown = await res.json();
+  const parsed = schema.safeParse(json);
+  if (!parsed.success) {
+    throw new ContractIssue(`response at ${path} failed schema validation: ${parsed.error.message}`);
+  }
+  return parsed.data;
+}

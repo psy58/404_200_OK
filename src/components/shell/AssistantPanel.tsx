@@ -1,17 +1,30 @@
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Panel } from "@/components/ui/Panel";
 import { Chip } from "@/components/ui/Chip";
 import { getTasks } from "@/services/tasksService";
+import { askAssistant } from "@/services/assistantService";
 import { useAssignment } from "@/state/AssignmentContext";
 import { qk } from "@/state/queryKeys";
 import { InfoIcon } from "@/lib/icons";
 import { daysUntil, formatFull, formatShort } from "@/lib/dates";
+import type { AssistantAnswer } from "@/domain/types";
 
 /**
- * F14 업무 맥락 기반 AI Q&A — P2, boundary-only stub. Per docs/01 F14 and
- * docs/06 §9.11, this stays disabled input + suggested prompts until a
- * grounded-answer backend contract exists (BACKEND_CONTRACT_REQUIRED).
+ * F14 업무 맥락 기반 AI Q&A — 백엔드 POST /api/v1/query 에 연결됨.
+ * 문서 1,088건을 색인한 검색이 근거를 찾고, 답변에는 항상 그 근거 문서와
+ * 업무 진행 흐름이 함께 온다 (docs/BACKEND_INTEGRATION.md).
+ *
+ * `npm run dev`(정적 mock 모드)에서는 백엔드가 없으므로 질문 시
+ * 연결 안내 오류가 뜬다. 실데이터 확인은 `npm run dev:backend`.
  */
+
+const SUGGESTIONS = [
+  { text: "이 업무는 작년에 어떻게 진행됐나요?", hint: "근거 · 작년 공문 흐름" },
+  { text: "다음에 해야 할 일이 뭔가요?", hint: "근거 · 진행 단계" },
+  { text: "제출해야 하는 서류가 뭔가요?", hint: "근거 · 지침·서식 문서" },
+];
+
 export function AssistantPanel({ taskId, onClose }: { taskId?: string; onClose: () => void }) {
   const { activeAssignmentId } = useAssignment();
   const tasksQuery = useQuery({
@@ -21,6 +34,32 @@ export function AssistantPanel({ taskId, onClose }: { taskId?: string; onClose: 
   });
   const task = tasksQuery.data?.find((t) => t.id === taskId) ?? tasksQuery.data?.[0];
 
+  const [question, setQuestion] = useState("");
+  const [elapsed, setElapsed] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const mutation = useMutation<AssistantAnswer, Error, string>({
+    mutationFn: (q) => askAssistant(q, task?.id),
+  });
+
+  // 근거 검색 + 답변 생성에 2~5초 걸린다. 멈춘 것처럼 보이지 않게 경과를 보여 준다.
+  useEffect(() => {
+    if (!mutation.isPending) return;
+    setElapsed(0);
+    const started = Date.now();
+    const timer = setInterval(() => setElapsed((Date.now() - started) / 1000), 100);
+    return () => clearInterval(timer);
+  }, [mutation.isPending]);
+
+  const submit = (q: string) => {
+    const trimmed = q.trim();
+    if (!trimmed || mutation.isPending) return;
+    setQuestion(trimmed);
+    mutation.mutate(trimmed);
+  };
+
+  const answer = mutation.data;
+
   return (
     <Panel
       titleId="assistant-panel-title"
@@ -29,10 +68,24 @@ export function AssistantPanel({ taskId, onClose }: { taskId?: string; onClose: 
       footer={
         <>
           <div className="search" style={{ flex: 1, height: 40 }}>
-            <input placeholder="이 업무에 대해 질문하기" aria-label="질문 입력" disabled />
+            <input
+              ref={inputRef}
+              placeholder="이 업무에 대해 질문하기"
+              aria-label="질문 입력"
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") submit(question);
+              }}
+              disabled={mutation.isPending}
+            />
           </div>
-          <button className="btn btn-primary" disabled>
-            질문
+          <button
+            className="btn btn-primary"
+            onClick={() => submit(question)}
+            disabled={mutation.isPending || !question.trim()}
+          >
+            {mutation.isPending ? "찾는 중" : "질문"}
           </button>
         </>
       }
@@ -52,23 +105,87 @@ export function AssistantPanel({ taskId, onClose }: { taskId?: string; onClose: 
                 기간 {daysUntil(task.officialDueDate)}일
               </span>
             </div>
+          </>
+        )}
 
+        {mutation.isPending && (
+          <div className="notice info" style={{ marginTop: 20 }}>
+            <InfoIcon />
+            <span>근거 문서를 찾아 답을 만드는 중… {elapsed.toFixed(1)}초</span>
+          </div>
+        )}
+
+        {mutation.isError && !mutation.isPending && (
+          <div className="notice" style={{ marginTop: 20 }}>
+            <InfoIcon />
+            <span>{mutation.error.message}</span>
+          </div>
+        )}
+
+        {answer && !mutation.isPending && (
+          <>
+            <span className="eyebrow" style={{ display: "block", marginTop: 24 }}>
+              답변
+            </span>
+            <div className="mini-note" style={{ marginTop: 10 }}>
+              <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.7 }}>{answer.message}</p>
+            </div>
+
+            {answer.sources.length > 0 && (
+              <>
+                <span className="eyebrow" style={{ display: "block", marginTop: 20 }}>
+                  근거 문서 {answer.sources.length}건
+                </span>
+                <div style={{ marginTop: 8, display: "grid", gap: 6 }}>
+                  {answer.sources.map((s) => (
+                    <div className="mini-note" key={`${s.documentId}-${s.chunkId ?? ""}`}>
+                      <p style={{ fontWeight: 640, fontSize: 13 }}>
+                        {s.title}
+                        {s.page ? ` · p.${s.page}` : ""}
+                        <span className="mf" style={{ marginLeft: 8 }}>
+                          관련도 {s.relevance.toFixed(2)}
+                        </span>
+                      </p>
+                      {s.snippet && (
+                        <p className="mf" style={{ marginTop: 4 }}>
+                          {s.snippet}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {answer.timeline.length > 1 && (
+              <>
+                <span className="eyebrow" style={{ display: "block", marginTop: 20 }}>
+                  이 업무의 진행 흐름
+                </span>
+                <div className="mini-note" style={{ marginTop: 8 }}>
+                  {answer.timeline.map((t, i) => (
+                    <p className="mf" key={i} style={{ marginTop: i === 0 ? 0 : 4 }}>
+                      {t.date ?? "날짜 미상"} · [{t.audience ?? t.kind}] {t.title}
+                    </p>
+                  ))}
+                </div>
+              </>
+            )}
+          </>
+        )}
+
+        {!answer && !mutation.isPending && (
+          <>
             <span className="eyebrow" style={{ display: "block", marginTop: 24 }}>
               먼저 확인할 것
             </span>
             <div style={{ marginTop: 10 }}>
-              <button className="sugg" disabled>
-                작년 우리 학교는 이 업무를 어떻게 처리했나요?
-                <span className="sm">근거 · 학교사례 문서 연결 예정</span>
-              </button>
-              <button className="sugg" disabled>
-                올해 지침에서 달라진 부분만 알려주세요
-                <span className="sm">근거 · 공식지침 문서 연결 예정</span>
-              </button>
-              <button className="sugg" disabled>
-                지금 온 공문에서 제가 해야 할 일만 뽑아주세요
-                <span className="sm">근거 · 접수 공문 연결 예정</span>
-              </button>
+              {SUGGESTIONS.map((s) => (
+                <button className="sugg" key={s.text} onClick={() => submit(s.text)}>
+                  {s.text}
+                  <span className="sm">{s.hint}</span>
+                </button>
+              ))}
             </div>
           </>
         )}
@@ -77,7 +194,7 @@ export function AssistantPanel({ taskId, onClose }: { taskId?: string; onClose: 
           <InfoIcon />
           <span>
             도우미는 문서를 정리하고 제안합니다. <strong>판단과 승인은 담당자가 합니다.</strong> 답변에는 항상 사용한
-            근거 문서가 함께 표시됩니다. 실제 응답은 백엔드 계약(F14, P2)이 확정된 뒤 연결됩니다.
+            근거 문서가 함께 표시됩니다.
           </span>
         </div>
       </div>

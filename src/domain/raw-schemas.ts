@@ -134,6 +134,35 @@ export const RawTaskDetailSchema = z.object({
   guideline_change_notice: z.string().optional(),
 });
 
+/**
+ * F14 업무 도우미 — 백엔드 POST /api/v1/query 응답 중 패널이 쓰는 부분.
+ * 전체 계약은 docs/API.md. zod 는 모르는 키를 조용히 버리므로 여기 없는
+ * 필드(workflow, next_actions 등)는 무시된다.
+ */
+export const RawAssistantSourceSchema = z.object({
+  document_id: z.string(),
+  chunk_id: z.string().nullable(),
+  title: z.string(),
+  page: z.number().nullable(),
+  snippet: z.string().nullable(),
+  relevance: z.number(),
+});
+export const RawAssistantTimelineSchema = z.object({
+  title: z.string(),
+  date: z.string().nullable(),
+  kind: z.string(),
+  audience: z.string().nullable(),
+});
+export const RawAssistantAnswerSchema = z.object({
+  query_id: z.string(),
+  message: z.string(),
+  data: z.object({
+    documents: z.array(RawAssistantSourceSchema),
+    timeline: z.array(RawAssistantTimelineSchema),
+  }),
+});
+
+export type RawAssistantAnswer = z.infer<typeof RawAssistantAnswerSchema>;
 export type RawTaskDetail = z.infer<typeof RawTaskDetailSchema>;
 export type RawTask = z.infer<typeof RawTaskSchema>;
 export type RawAssignment = z.infer<typeof RawAssignmentSchema>;
