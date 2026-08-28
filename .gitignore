@@ -34,6 +34,7 @@
 __pycache__/
 *.pyc
 .pytest_cache/
+*.ses
 
 # 변환·색인 결과와 개인정보 포함 원본
 /backend/data/

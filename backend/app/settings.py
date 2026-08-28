@@ -17,6 +17,27 @@ load_dotenv(BACKEND_DIR / ".env")
 DATA_DIR = BACKEND_DIR / "data"
 MARKDOWN_DIR = DATA_DIR / "markdown"
 DOCUMENTS_PATH = DATA_DIR / "documents.json"
+
+
+def env_flag(name: str, default: bool = False) -> bool:
+    """환경변수의 명시적인 true 값만 켠다."""
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+# 실제 산출물이 없는 해커톤 컨테이너에서만 기존 추적 fixture를 읽는다.
+# 기본값은 꺼짐이므로 일반 개발 실행과 테스트의 기존 동작은 바뀌지 않는다.
+DEMO_SEED_ENABLED = env_flag("DEMO_SEED_ENABLED")
+DEMO_SEED_DIR = Path(
+    os.environ.get("DEMO_SEED_DIR") or ROOT_DIR / "public" / "mocks" / "backend"
+)
+
+# 업로드는 메모리에 올린 뒤 처리하므로 명시적인 상한이 필요하다.
+MAX_UPLOAD_BYTES = int(os.environ.get("MAX_UPLOAD_BYTES", str(20 * 1024 * 1024)))
+
+
 def _default_vector_dir() -> Path:
     """벡터 저장소 위치. 보통은 backend/data/vectors 다.
 
