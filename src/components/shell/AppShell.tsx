@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet, useMatch, useNavigate } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { AssignmentModal } from "./AssignmentModal";
@@ -17,6 +17,7 @@ export function AppShell() {
   const [navOpen, setNavOpen] = useState(false);
   const { overlay, open, close } = useOverlay();
   const navigate = useNavigate();
+  const taskMatch = useMatch("/tasks/:taskId");
   const gPressed = useRef(false);
   const gTimer = useRef<ReturnType<typeof setTimeout>>();
 
@@ -69,9 +70,9 @@ export function AppShell() {
         </main>
       </div>
 
-      <button className="fab" onClick={() => open("assistant")}>
+      <button className="fab" onClick={() => open("assistant", taskMatch?.params.taskId)}>
         <AssistantIcon />
-        업무 도우미
+        AI 감
       </button>
 
       {overlay?.kind === "assign" && <AssignmentModal onClose={close} />}

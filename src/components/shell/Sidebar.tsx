@@ -66,13 +66,6 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           인수인계서
         </NavLink>
       </nav>
-
-      <div className="side-foot">
-        <p>기록은 이 학교의 조직기억으로 남습니다.</p>
-        <p style={{ marginTop: 6 }}>
-          <span className="em num">전임자 문서 412건</span> 분석 완료
-        </p>
-      </div>
     </aside>
   );
 }

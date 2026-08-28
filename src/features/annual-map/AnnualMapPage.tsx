@@ -60,9 +60,7 @@ export function AnnualMapPage() {
           <h1 className="t-display" style={{ marginTop: 9 }}>
             연간 업무 지도
           </h1>
-          <p className="sub">
-            3월부터 다음 해 2월까지의 흐름입니다. 막대 안 주황 점은 <b>전년도 담당자가 실제로 처리한 시점</b>입니다.
-          </p>
+          <p className="sub">3월부터 다음 해 2월까지의 업무 일정</p>
         </div>
       </div>
 
@@ -140,9 +138,9 @@ export function AnnualMapPage() {
               <span className="leg">
                 <span className="sw" style={{ background: "var(--gam)" }} />
                 <span>
-                  <span className="lt">전년도 실제 처리</span>
+                  <span className="lt">주황 점</span>
                   <br />
-                  <span className="lv">막대 내 주황 점</span>
+                  <span className="lv">작년 실제 처리일</span>
                 </span>
               </span>
             </div>

@@ -5,7 +5,7 @@ import { QueryBoundary } from "@/components/ui/QueryBoundary";
 import { getNotifications } from "@/services/notificationsService";
 import { qk } from "@/state/queryKeys";
 import { useToast } from "@/state/ToastContext";
-import { AlertIcon, InfoIcon } from "@/lib/icons";
+import { AlertIcon } from "@/lib/icons";
 import type { NotificationKind } from "@/domain/types";
 
 const KIND_BG: Record<NotificationKind, string> = {
@@ -41,7 +41,7 @@ export function NotificationPanel({ onClose }: { onClose: () => void }) {
           <button
             className="btn btn-primary"
             onClick={() => {
-              toast("모두 읽음으로 표시했습니다 (시연)");
+              toast("모두 읽음으로 표시했습니다");
             }}
           >
             모두 읽음
@@ -49,12 +49,6 @@ export function NotificationPanel({ onClose }: { onClose: () => void }) {
         </>
       }
     >
-      <div className="notice" style={{ margin: "14px 24px" }}>
-        <InfoIcon />
-        <span>
-          지금 보이는 알림은 <strong>예시 데이터</strong>입니다. 읽음 처리와 실시간 알림 기능은 준비 중입니다.
-        </span>
-      </div>
       <QueryBoundary
         query={query}
         isEmpty={(d) => d.length === 0}

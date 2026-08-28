@@ -47,7 +47,7 @@ export function AssignmentModal({ onClose }: { onClose: () => void }) {
             </span>
             <span className="ot">{a.name}</span>
             <span className="om">
-              {a.activeFrom}~ · {a.note ?? "서버 허용"} · 업무 {a.taskCount}개
+              {a.activeFrom}~ · {a.note ?? "학교 기본 업무"} · 업무 {a.taskCount}개
             </span>
           </button>
         ))}

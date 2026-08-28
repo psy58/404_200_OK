@@ -3,7 +3,7 @@ import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/state/ToastContext";
 import { InfoIcon, FileIcon, UploadIcon } from "@/lib/icons";
 
-const STEPS = ["선택", "업로드", "서버 검사", "파싱", "분석", "검토 필요"] as const;
+const STEPS = ["선택", "업로드", "안전 확인", "내용 읽기", "분석", "검토"] as const;
 const MOCK_FILES = [
   { name: "2025_과학정보부_기안문서목록.xlsx", size: "248 KB" },
   { name: "2025_AI교육주간_운영계획.hwp", size: "1.4 MB" },

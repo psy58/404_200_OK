@@ -70,14 +70,19 @@ export function TaskDetailPage() {
         <div>
           <span className="eyebrow">{task.category}</span>
           <h1 className="t-display" style={{ marginTop: 9 }}>{task.title}</h1>
-          <p className="sub">{task.rationale || "이 업무에 대한 별도 참고 사항이 없습니다."}</p>
+          {task.rationale && (
+            <div className="analysis-summary">
+              <span className="analysis-label">AI 업무 분석</span>
+              <p>{task.rationale}</p>
+            </div>
+          )}
         </div>
         <div style={{ display: "flex", gap: 9 }}>
           <button className="btn btn-quiet" onClick={() => open("note", task.id)}>
             경험 메모 쓰기
           </button>
           <button className="btn btn-primary" onClick={() => open("assistant", task.id)}>
-            이 업무 도우미 열기
+            AI 감 열기
           </button>
         </div>
       </div>

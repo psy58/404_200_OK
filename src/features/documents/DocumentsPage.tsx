@@ -56,8 +56,7 @@ export function DocumentsPage() {
     <div className="stack">
       <div className="page-head">
         <div>
-          <span className="eyebrow">권한이 있는 문서만 표시</span>
-          <h1 className="t-display" style={{ marginTop: 9 }}>문서함</h1>
+          <h1 className="t-display">문서함</h1>
           <p className="sub">
             <b>{query.data?.length ?? 0}건</b> · 2026.08.28 09:00 기준
           </p>

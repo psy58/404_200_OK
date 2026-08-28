@@ -10,7 +10,6 @@ export function EvidenceChain({ chain, guidelineChangeNotice }: { chain: Evidenc
         <span className="lead">
           <h2 className="t-h2">공문 → 매뉴얼 → 법령 연결</h2>
         </span>
-        <span className="t-cap">여러 사이트를 따라다니지 않아도 됩니다</span>
       </div>
       {chain.length === 0 ? (
         <p className="t-cap">이 업무에 연결된 근거 문서가 아직 없습니다.</p>

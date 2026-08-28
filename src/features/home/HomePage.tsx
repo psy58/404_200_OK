@@ -94,7 +94,7 @@ export function HomePage() {
           accent="#0B4171"
           title="새로 온 관련 공문"
           value={feedQuery.data?.length ?? 0}
-          meta="업무에 자동 연결됨"
+          meta="관련 공문 확인"
           linkLabel="목록 보기"
           to="/home"
           scrollTarget="related-documents"
@@ -103,7 +103,7 @@ export function HomePage() {
           accent="#10B981"
           title="올해 완료한 업무"
           value={doneCount}
-          meta="자동으로 기록됨"
+          meta="올해 처리 내역"
           linkLabel="인수인계서 보기"
           to="/handover"
           variant="right"
@@ -198,7 +198,7 @@ export function HomePage() {
                 <span className="dot-m" style={{ background: "var(--navy-700)" }} />
                 <h2 className="t-h2">새로 온 관련 공문</h2>
               </span>
-              <Chip tone="navy">자동 분류</Chip>
+              <Chip tone="navy">관련 업무</Chip>
             </div>
             <QueryBoundary query={feedQuery} isEmpty={(d) => d.length === 0} emptyTitle="새로 온 공문이 없습니다">
               {(items) =>
@@ -285,7 +285,7 @@ export function HomePage() {
             <div className="notice flat" style={{ marginTop: 16 }}>
               <InfoIcon />
               <span>
-                기록은 인수인계서 초안으로 자동 축적됩니다. <strong>전달 여부는 연말 검토에서 직접 선택</strong>합니다.
+                인수인계에 포함할 내용은 <strong>연말 검토에서 직접 선택</strong>합니다.
               </span>
             </div>
             <Link className="btn btn-quiet btn-sm" style={{ width: "100%", marginTop: 14, textAlign: "center" }} to="/handover">

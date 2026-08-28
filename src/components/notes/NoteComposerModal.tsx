@@ -30,7 +30,7 @@ export function NoteComposerModal({ taskId, onClose }: { taskId?: string; onClos
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: qk.notes() });
       onClose();
-      toast("저장했습니다 (시연)");
+      toast("저장했습니다");
     },
   });
 

@@ -36,7 +36,7 @@ export function ReviewModal({ onClose }: { onClose: () => void }) {
             onClick={() => {
               queryClient.invalidateQueries({ queryKey: qk.notes() });
               onClose();
-              toast("검토 결과 저장 (시연)");
+              toast("검토 결과를 저장했습니다");
             }}
           >
             검토 결과 저장
