@@ -5,6 +5,11 @@ import { useToast } from "@/state/ToastContext";
 import { useOverlay } from "@/state/OverlayContext";
 import { CheckIcon, InfoIcon } from "@/lib/icons";
 
+function formatAssignmentPeriod(activeFrom: string): string {
+  const month = /^(?:\d{4})-(\d{2})/.exec(activeFrom)?.[1];
+  return month ? `${Number(month)}월부터 담당` : activeFrom;
+}
+
 /** F01 담당 업무 선택. 서버가 허용한 업무분장 중에서만 고를 수 있다. */
 export function AssignmentModal({ onClose }: { onClose: () => void }) {
   const { assignments, activeAssignmentId, setActiveAssignmentId, school, status, errorMessage } = useAssignment();
@@ -59,7 +64,7 @@ export function AssignmentModal({ onClose }: { onClose: () => void }) {
               <strong>{assignment.name}</strong>
               {pending === assignment.id && <span className="assignment-check" aria-label="선택됨"><CheckIcon /></span>}
             </span>
-            <span>{Number(assignment.activeFrom.slice(5, 7))}월부터 담당 · 업무 {assignment.taskCount}개</span>
+            <span>{formatAssignmentPeriod(assignment.activeFrom)} · 업무 {assignment.taskCount}개</span>
           </button>
         ))}
         <button
@@ -77,8 +82,8 @@ export function AssignmentModal({ onClose }: { onClose: () => void }) {
       <div className="notice info" style={{ marginTop: 18 }}>
         <InfoIcon />
         <span>
-          목록에 없는 업무를 맡으셨나요? 담당 업무 추가는 권한 상승이 아니라 <strong>학교 자체 업무 등록·제안</strong>으로
-          진행됩니다. 현재 배포에서는 백엔드 계약이 없어 비활성 상태입니다.
+          목록에 없는 업무를 맡으셨나요? 업무 추가는 권한 상승이 아니라 <strong>현재 담당 범위에 새 업무 카드를 등록</strong>하는
+          방식으로 진행됩니다. 담당 범위 자체를 늘리는 기능은 관리자 승인이 필요합니다.
         </span>
       </div>
     </Modal>

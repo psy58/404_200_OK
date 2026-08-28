@@ -18,7 +18,7 @@ export function NewTaskModal({ onClose }: { onClose: () => void }) {
   const [dueDate, setDueDate] = useState("");
   const [memo, setMemo] = useState("");
   const { toast } = useToast();
-  const { context } = useAssignment();
+  const { context, school } = useAssignment();
   const queryClient = useQueryClient();
 
   const mutation = useMutation({
@@ -29,6 +29,9 @@ export function NewTaskModal({ onClose }: { onClose: () => void }) {
     onSuccess: (task) => {
       if (context) {
         queryClient.invalidateQueries({ queryKey: qk.tasks(context) });
+        if (school) {
+          queryClient.invalidateQueries({ queryKey: qk.annual(context, school.academicYear) });
+        }
         queryClient.invalidateQueries({ queryKey: qk.notifications(context) });
       }
       onClose();

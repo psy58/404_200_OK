@@ -14,7 +14,6 @@
  */
 import { createFrontendApiService } from "@/api/service-factory.js";
 import type { FrontendApiService } from "@/api/ui-api-boundary-v2";
-import { createPreviewApi } from "./mockApiFactory";
 import { createBackendApi } from "@/api/backend-api";
 
 let servicePromise: Promise<FrontendApiService> | undefined;
@@ -28,6 +27,11 @@ function createRealApi(): FrontendApiService {
   return createBackendApi();
 }
 
+async function createMockApi(): Promise<FrontendApiService> {
+  const { createPreviewApi } = await import("./mockApiFactory");
+  return createPreviewApi();
+}
+
 export function getFrontendApiService(): Promise<FrontendApiService> {
   if (!servicePromise) {
     const environment = runtimeEnvironment();
@@ -36,7 +40,7 @@ export function getFrontendApiService(): Promise<FrontendApiService> {
       mode,
       runtimeEnvironment: environment,
       allowMock: environment !== "production" && import.meta.env.VITE_ALLOW_MOCK === "true",
-      createMock: createPreviewApi,
+      createMock: createMockApi,
       createReal: createRealApi,
     });
   }

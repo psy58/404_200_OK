@@ -124,7 +124,7 @@ export function adaptExperienceNote(
 
 function adaptEvidence(vm: EvidenceVM) {
   return {
-    url: vm.url,
+    ...(vm.url ? { url: vm.url } : {}),
     level: vm.source === "official" ? "공식 근거" : "학교사례",
     title: vm.title,
     detail: vm.rationale,

@@ -45,7 +45,7 @@ const BackendErrorSchema = z.object({
   error: z.object({
     code: z.string(),
     message: z.string(),
-    details: z.array(z.object({ field: z.string(), reason: z.string() })).optional(),
+    details: z.array(z.object({ field: z.string(), reason: z.string() })).nullable().optional(),
   }),
 });
 

@@ -32,6 +32,7 @@ from ..ingest import frontmatter, splitter
 from . import document_store, state_store
 
 UPLOAD_MARKDOWN_SUBDIR = "업로드"
+MIN_UPLOAD_CHARACTERS = 40
 
 STATUS_NOTE = {
     "received": "서버에 저장했습니다. 변환을 시작합니다.",
@@ -47,10 +48,13 @@ def _document_id(record_id: str) -> str:
 
 def _convert_to_markdown(saved_path: Path, record_id: str, title: str) -> tuple[Path, str]:
     """markitdown으로 변환해 배치와 같은 폴더 구조에 md 를 남긴다."""
-    from ..ingest import converter
+    if saved_path.suffix.lower() in {".txt", ".md", ".csv"}:
+        body = saved_path.read_text(encoding="utf-8", errors="replace").strip()
+    else:
+        from ..ingest import converter
 
-    body = converter.convert_one(converter.build_markitdown(), saved_path).strip()
-    if len(body) < converter.MIN_CHARACTERS:
+        body = converter.convert_one(converter.build_markitdown(), saved_path).strip()
+    if len(body) < MIN_UPLOAD_CHARACTERS:
         raise ValueError("변환 결과가 비어 있습니다 (스캔 이미지이거나 지원하지 않는 내용).")
 
     meta = {

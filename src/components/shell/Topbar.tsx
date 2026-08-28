@@ -16,7 +16,7 @@ export function Topbar({ navOpen, onToggleNav }: { navOpen: boolean; onToggleNav
         className="hamb gam-menu-toggle"
         id="hamb"
         type="button"
-        aria-label={navOpen ? "사이드바 닫기" : "사이드바 열기"}
+        aria-label={navOpen ? "메뉴 닫기" : "메뉴 열기"}
         aria-expanded={navOpen}
         aria-controls="primary-navigation"
         onClick={onToggleNav}
