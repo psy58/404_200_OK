@@ -1,8 +1,13 @@
 # 인제스트 전용 의존성. API 서버만 띄울 때는 필요 없다.
 #   .venv/Scripts/python.exe -m pip install -r requirements-ingest.txt
 
-# 1단계: 문서 → Markdown. HWPX 지원이 들어 있는 로컬 포크를 쓴다.
--e ../markit_down_hwpx/packages/markitdown[pdf,xlsx,xls,pptx,docx]
+# 1단계: 문서 → Markdown. HWPX 지원이 들어 있는 포크를 GitHub에서 바로 설치한다.
+# 별도 클론이 필요 없다 — 이 파일 하나로 끝.
+markitdown[pdf,xlsx,xls,pptx,docx] @ git+https://github.com/llA1ll/markitdown_hwpx.git#subdirectory=packages/markitdown
+
+# 포크 자체를 고치며 개발할 때는 위 줄 대신 옆에 클론해 두고 이렇게 건다:
+#   git clone https://github.com/llA1ll/markitdown_hwpx.git ../markit_down_hwpx
+#   -e ../markit_down_hwpx/packages/markitdown[pdf,xlsx,xls,pptx,docx]
 
 # 구버전 HWP(OLE 복합 문서) 읽기. markitdown 변환기로 등록해서 쓴다.
 olefile>=0.47
