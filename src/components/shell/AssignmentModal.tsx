@@ -2,70 +2,77 @@ import { useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { useAssignment } from "@/state/AssignmentContext";
 import { useToast } from "@/state/ToastContext";
-import { CheckIcon, InfoIcon } from "@/lib/icons";
+import { useOverlay } from "@/state/OverlayContext";
+import { CheckIcon } from "@/lib/icons";
 
-/**
- * F01 담당 업무 선택. Only server-allowed assignments are selectable;
- * "업무 등록 제안" is intentionally disabled because no backend contract
- * exists yet to accept a school-proposed task — see docs/01 §8.2.
- */
+/** F01 담당 업무 선택. 서버가 허용한 업무분장 중에서만 고를 수 있다. */
 export function AssignmentModal({ onClose }: { onClose: () => void }) {
-  const { assignments, activeAssignmentId, setActiveAssignmentId, school } = useAssignment();
-  const [pending, setPending] = useState(activeAssignmentId);
+  const { assignments, selectedAssignmentIds, setSelectedAssignmentIds, school } = useAssignment();
+  const [pendingIds, setPendingIds] = useState(selectedAssignmentIds);
   const { toast } = useToast();
+  const { open } = useOverlay();
+  const initialAssignments = assignments.filter((assignment) => !assignment.note?.includes("신규 업무"));
 
   return (
     <Modal
       titleId="assign-modal-title"
       eyebrow={school ? `${school.name} · ${school.academicYear}학년도` : undefined}
       title="담당 업무 선택"
-      description="서버가 허용한 업무분장만 표시됩니다. 선택은 작업 맥락을 바꾸는 것이며 권한을 부여하지 않습니다."
+      description="지금 보고 싶은 담당 업무를 선택하세요."
       onClose={onClose}
       footer={
         <>
-          <button className="btn btn-quiet" disabled>
-            업무 등록 제안
-          </button>
           <button className="btn btn-quiet" onClick={onClose}>
             취소
           </button>
           <button
             className="btn btn-primary"
+            disabled={pendingIds.length === 0}
             onClick={() => {
-              if (pending) setActiveAssignmentId(pending);
+              setSelectedAssignmentIds(pendingIds);
               onClose();
-              toast("담당 업무를 전환했습니다");
+              toast("선택한 담당 업무를 적용했습니다");
             }}
           >
-            이 업무로 계속하기
+            선택한 업무 보기
           </button>
         </>
       }
     >
-      <div className="opt-grid">
-        {assignments.map((a) => (
+      <div className="assignment-grid">
+        {initialAssignments.map((assignment) => (
           <button
-            key={a.id}
-            className="opt"
-            aria-pressed={pending === a.id}
-            onClick={() => setPending(a.id)}
+            key={assignment.id}
+            className="assignment-card"
+            aria-pressed={pendingIds.includes(assignment.id)}
+            onClick={() => setPendingIds((current) => {
+              if (current.includes(assignment.id)) {
+                if (current.length === 1) {
+                  toast("최소 1개의 담당 업무를 선택해주세요.");
+                  return current;
+                }
+                return current.filter((id) => id !== assignment.id);
+              }
+              return [...current, assignment.id];
+            })}
           >
-            <span className="tick">
-              <CheckIcon />
+            <span className="assignment-card-title">
+              <strong>{assignment.name}</strong>
+              {pendingIds.includes(assignment.id) && <span className="assignment-check" aria-label="선택됨"><CheckIcon /></span>}
             </span>
-            <span className="ot">{a.name}</span>
-            <span className="om">
-              {a.activeFrom}~ · {a.note ?? "서버 허용"} · 업무 {a.taskCount}개
-            </span>
+            <span>{Number(assignment.activeFrom.slice(5, 7))}월부터 담당</span>
           </button>
         ))}
-      </div>
-      <div className="notice info" style={{ marginTop: 18 }}>
-        <InfoIcon />
-        <span>
-          목록에 없는 업무를 맡으셨나요? 담당 업무 추가는 권한 상승이 아니라 <strong>학교 자체 업무 등록·제안</strong>으로
-          진행됩니다. 현재 배포에서는 백엔드 계약이 없어 비활성 상태입니다.
-        </span>
+        <button
+          className="assignment-add-card"
+          onClick={() => {
+            onClose();
+            requestAnimationFrame(() => open("new-assignment"));
+          }}
+        >
+          <span className="assignment-add-icon" aria-hidden="true">+</span>
+          <span><strong>새로운 업무 추가</strong><small>새로 맡은 업무 등록</small></span>
+        </button>
       </div>
     </Modal>
   );

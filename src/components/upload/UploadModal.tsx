@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { getUploads, uploadDocument } from "@/services/uploadsService";
 import { useToast } from "@/state/ToastContext";
+import { useAssignment } from "@/state/AssignmentContext";
+import { clearDraft, createHakmatongDuty, readDraft } from "@/state/hakmatongDemo";
 import { InfoIcon, FileIcon, UploadIcon } from "@/lib/icons";
 import type { RawUploadRecord } from "@/domain/raw-schemas";
 
@@ -26,6 +28,16 @@ export function UploadModal({ onClose }: { onClose: () => void }) {
   const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  // 학맞통 시연: 새 담당 업무 추가 중이면 업로드가 그 흐름의 마지막 단계다.
+  const { refreshCustomAssignments } = useAssignment();
+  const draft = readDraft();
+  const isNewDutyFlow = !!draft;
+  const finishNewDuty = () => {
+    if (draft && createHakmatongDuty(draft)) refreshCustomAssignments();
+    clearDraft();
+    onClose();
+    toast(`${draft?.name ?? "새"} 업무를 추가했습니다`);
+  };
 
   async function run(files: File[]) {
     if (!files.length) return;
@@ -86,16 +98,21 @@ export function UploadModal({ onClose }: { onClose: () => void }) {
     <Modal
       titleId="upload-modal-title"
       wide
-      eyebrow="문서 업로드"
-      title="문서 업로드"
-      description="파일은 서버에 저장되며, 분석·색인은 다음 인제스트 실행 때 문서함과 검색에 반영됩니다."
+      eyebrow={isNewDutyFlow ? `${draft?.name} · ${draft?.assignedYear}년 ${draft?.assignedMonth}월부터 담당` : "문서 업로드"}
+      title={isNewDutyFlow ? "관련 자료를 추가해주세요" : "문서 업로드"}
+      description="파일은 서버에 저장되며, 변환·분할·색인이 배경에서 진행됩니다."
       onClose={onClose}
       footer={
         <>
           <button className="btn btn-quiet" onClick={onClose}>
             {phase === "done" ? "닫기" : "취소"}
           </button>
-          {phase === "done" && (
+          {phase === "done" && isNewDutyFlow && (
+            <button className="btn btn-primary" onClick={finishNewDuty}>
+              업무 추가 완료
+            </button>
+          )}
+          {phase === "done" && !isNewDutyFlow && (
             <button className="btn btn-primary" onClick={() => { setPhase("pick"); setRows([]); }}>
               더 올리기
             </button>

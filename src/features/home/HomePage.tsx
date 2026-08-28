@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { getTasks } from "@/services/tasksService";
 import { getFeed } from "@/services/feedService";
@@ -27,25 +27,32 @@ const VISIBILITY_LABEL: Record<string, { label: string; tone: string }> = {
 
 export function HomePage() {
   const [showNewTask, setShowNewTask] = useState(false);
-  const { activeAssignment, activeAssignmentId } = useAssignment();
+  const { activeAssignment, selectedAssignmentIds } = useAssignment();
   const { open } = useOverlay();
 
-  const tasksQuery = useQuery({
-    queryKey: qk.tasks(activeAssignmentId ?? ""),
-    queryFn: ({ signal }) => getTasks(activeAssignmentId ?? "", signal),
-    enabled: !!activeAssignmentId,
+  const tasksQueries = useQueries({
+    queries: selectedAssignmentIds.map((assignmentId) => ({
+      queryKey: qk.tasks(assignmentId),
+      queryFn: ({ signal }: { signal: AbortSignal }) => getTasks(assignmentId, signal),
+    })),
   });
   const feedQuery = useQuery({ queryKey: qk.feed(), queryFn: ({ signal }) => getFeed(signal) });
   const notesQuery = useQuery({ queryKey: qk.notes(), queryFn: ({ signal }) => getExperienceNotes(signal) });
   const docsQuery = useQuery({ queryKey: qk.documents(), queryFn: ({ signal }) => getDocuments(signal) });
 
-  if (!activeAssignmentId) return <LoadingBlock label="담당 업무를 불러오는 중" />;
-  if (tasksQuery.isPending) return <LoadingBlock label="내 업무를 불러오는 중" />;
-  if (tasksQuery.isError) {
-    return <ErrorState description={(tasksQuery.error as Error).message} onRetry={() => tasksQuery.refetch()} />;
+  if (selectedAssignmentIds.length === 0) return <LoadingBlock label="담당 업무를 불러오는 중" />;
+  if (tasksQueries.some((query) => query.isPending)) return <LoadingBlock label="내 업무를 불러오는 중" />;
+  const failedTasksQuery = tasksQueries.find((query) => query.isError);
+  if (failedTasksQuery) {
+    return <ErrorState description={(failedTasksQuery.error as Error).message} onRetry={() => failedTasksQuery.refetch()} />;
   }
 
-  const tasks = tasksQuery.data;
+  const tasks = tasksQueries.flatMap((query) => query.data ?? []);
+  const selectedTaskIds = new Set(tasks.map((task) => task.id));
+  const selectedTaskTitles = new Set(tasks.map((task) => task.title));
+  const filteredFeed = (feedQuery.data ?? []).filter((item) => !item.relatedTaskId || selectedTaskIds.has(item.relatedTaskId));
+  const filteredNotes = (notesQuery.data ?? []).filter((note) => selectedTaskIds.has(note.taskId));
+  const filteredDocuments = (docsQuery.data ?? []).filter((document) => selectedTaskTitles.has(document.relatedTaskTitle) || (selectedAssignmentIds.includes("sci") && document.relatedTaskTitle === "과학정보 · 공통"));
   const inProgress = tasks.filter((t) => t.status === "in_progress");
   const upcoming = tasks.filter((t) => t.status === "upcoming");
   const doneCount = tasks.filter((t) => t.status === "complete").length;
@@ -85,6 +92,7 @@ export function HomePage() {
           meta={urgent ? `가장 급한 업무 D-${daysUntil(urgent.officialDueDate)}` : "진행 중인 업무 없음"}
           linkLabel="목록 보기"
           to="/home"
+          scrollTarget="in-progress-tasks"
         />
         <KpiCard
           accent="#F59E0B"
@@ -93,20 +101,22 @@ export function HomePage() {
           meta="전년도 준비 시점 기준"
           linkLabel="목록 보기"
           to="/home"
+          scrollTarget="upcoming-tasks"
         />
         <KpiCard
           accent="#0B4171"
           title="새로 온 관련 공문"
-          value={feedQuery.data?.length ?? 0}
-          meta="업무에 자동 연결됨"
+          value={filteredFeed.length}
+          meta="관련 공문 확인"
           linkLabel="목록 보기"
-          to="/docs"
+          to="/home"
+          scrollTarget="related-documents"
         />
         <KpiCard
           accent="#10B981"
           title="올해 완료한 업무"
           value={doneCount}
-          meta="자동으로 기록됨"
+          meta="올해 처리 내역"
           linkLabel="인수인계서 보기"
           to="/handover"
           variant="right"
@@ -115,7 +125,7 @@ export function HomePage() {
 
       <div className="grid-main">
         <div className="stack" style={{ gap: 22 }}>
-          <section className="card card-pad">
+          <section className="card card-pad scroll-target" id="in-progress-tasks">
             <span className="sec-tag">이번 달 · 8월</span>
             <div className="card-head">
               <span className="lead">
@@ -133,7 +143,7 @@ export function HomePage() {
             )}
           </section>
 
-          <section className="card card-pad">
+          <section className="card card-pad scroll-target" id="upcoming-tasks">
             <span className="sec-tag">다음 · 9~10월</span>
             <div className="card-head">
               <span className="lead">
@@ -195,17 +205,17 @@ export function HomePage() {
         </div>
 
         <aside className="col-side">
-          <section className="card card-pad">
+          <section className="card card-pad scroll-target" id="related-documents">
             <div className="card-head">
               <span className="lead">
                 <span className="dot-m" style={{ background: "var(--navy-700)" }} />
                 <h2 className="t-h2">새로 온 관련 공문</h2>
               </span>
-              <Chip tone="navy">자동 분류</Chip>
+              <Chip tone="navy">관련 업무</Chip>
             </div>
             <QueryBoundary query={feedQuery} isEmpty={(d) => d.length === 0} emptyTitle="새로 온 공문이 없습니다">
-              {(items) =>
-                items.map((f) => (
+              {() =>
+                filteredFeed.map((f) => (
                   <Link className="dfeed" to={f.relatedTaskId ? `/tasks/${f.relatedTaskId}` : "/docs"} key={f.id}>
                     <span className="stamp">접수</span>
                     <span style={{ minWidth: 0 }}>
@@ -235,11 +245,11 @@ export function HomePage() {
             </div>
             <QueryBoundary
               query={notesQuery}
-              isEmpty={(d) => d.filter((n) => n.visibility !== "private").length === 0}
+              isEmpty={() => filteredNotes.filter((n) => n.visibility !== "private").length === 0}
               emptyTitle="아직 공유된 경험 메모가 없습니다"
             >
-              {(items) =>
-                items
+              {() =>
+                filteredNotes
                   .filter((n) => n.visibility !== "private")
                   .slice(0, 2)
                   .map((n) => (
@@ -279,16 +289,16 @@ export function HomePage() {
             </div>
             <div className="ho-line">
               <span className="k">경험 메모</span>
-              <span className="v num">{(notesQuery.data ?? []).filter((n) => n.isMine).length}건 (비공개 포함)</span>
+              <span className="v num">{filteredNotes.filter((n) => n.isMine).length}건 (비공개 포함)</span>
             </div>
             <div className="ho-line">
               <span className="k">연결된 문서</span>
-              <span className="v num">{docsQuery.data?.length ?? 0}건</span>
+              <span className="v num">{filteredDocuments.length}건</span>
             </div>
             <div className="notice flat" style={{ marginTop: 16 }}>
               <InfoIcon />
               <span>
-                기록은 인수인계서 초안으로 자동 축적됩니다. <strong>전달 여부는 연말 검토에서 직접 선택</strong>합니다.
+                인수인계에 포함할 내용은 <strong>연말 검토에서 직접 선택</strong>합니다.
               </span>
             </div>
             <Link className="btn btn-quiet btn-sm" style={{ width: "100%", marginTop: 14, textAlign: "center" }} to="/handover">

@@ -1,12 +1,12 @@
-import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useQueries } from "@tanstack/react-query";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { getTasks } from "@/services/tasksService";
 import { useAssignment } from "@/state/AssignmentContext";
 import { qk } from "@/state/queryKeys";
-import { QueryBoundary } from "@/components/ui/QueryBoundary";
 import { formatShort, MONTHS } from "@/lib/dates";
 import type { TaskInstance, TaskStatus } from "@/domain/types";
+import { taskNavigationState, type TaskNavigationState } from "@/lib/taskNavigation";
 
 const STATUS_LABEL: Record<TaskStatus, string> = {
   in_progress: "진행중",
@@ -23,52 +23,63 @@ function barClass(status: TaskStatus): string {
 }
 
 export function AnnualMapPage() {
-  const { activeAssignment, activeAssignmentId } = useAssignment();
+  const { selectedAssignments, selectedAssignmentIds } = useAssignment();
   const navigate = useNavigate();
-  const [statusFilter, setStatusFilter] = useState<TaskStatus | "all">("all");
-  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const restoreState = location.state as { restore?: TaskNavigationState } | null;
+  const [statusFilter, setStatusFilter] = useState<TaskStatus | "all">((restoreState?.restore?.filters?.statusFilter as TaskStatus | "all") ?? "all");
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(restoreState?.restore?.filters?.categoryFilter ?? searchParams.get("category"));
+  const focusTaskId = searchParams.get("focus");
 
-  const tasksQuery = useQuery({
-    queryKey: qk.tasks(activeAssignmentId ?? ""),
-    queryFn: ({ signal }) => getTasks(activeAssignmentId ?? "", signal),
-    enabled: !!activeAssignmentId,
+  useEffect(() => {
+    if (focusTaskId) document.getElementById(`task-${focusTaskId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    else if (restoreState?.restore?.scrollY) window.scrollTo({ top: restoreState.restore.scrollY, behavior: "auto" });
+  }, [focusTaskId, restoreState]);
+
+  const taskQueries = useQueries({
+    queries: selectedAssignmentIds.map((assignmentId) => ({
+      queryKey: qk.tasks(assignmentId),
+      queryFn: ({ signal }: { signal: AbortSignal }) => getTasks(assignmentId, signal),
+    })),
   });
+  const tasks = taskQueries.flatMap((query) => query.data ?? []);
+  const isPending = taskQueries.some((query) => query.isPending);
+  const failedQuery = taskQueries.find((query) => query.isError);
 
   const categories = useMemo(
-    () => Array.from(new Set((tasksQuery.data ?? []).map((t) => t.category))),
-    [tasksQuery.data],
+    () => Array.from(new Set(tasks.map((t) => t.category))),
+    [tasks],
   );
 
-  const filtered = (tasksQuery.data ?? []).filter(
+  const filtered = tasks.filter(
     (t) => (statusFilter === "all" || t.status === statusFilter) && (!categoryFilter || t.category === categoryFilter),
   );
 
   const statusCounts = useMemo(() => {
-    const all = tasksQuery.data ?? [];
+    const all = tasks;
     const counts: Record<TaskStatus, number> = { in_progress: 0, upcoming: 0, planned: 0, complete: 0 };
     all.forEach((t) => counts[t.status]++);
     return counts;
-  }, [tasksQuery.data]);
+  }, [tasks]);
 
   return (
     <div className="stack">
       <div className="page-head">
         <div>
           <span className="eyebrow">
-            {activeAssignment?.name ?? ""} · {activeAssignment ? "2026학년도" : ""}
+            {selectedAssignments.map((assignment) => assignment.name).join(" · ")} · 2026학년도
           </span>
           <h1 className="t-display" style={{ marginTop: 9 }}>
             연간 업무 지도
           </h1>
-          <p className="sub">
-            3월부터 다음 해 2월까지의 흐름입니다. 막대 안 주황 점은 <b>전년도 담당자가 실제로 처리한 시점</b>입니다.
-          </p>
+          <p className="sub">3월부터 다음 해 2월까지의 업무 일정</p>
         </div>
       </div>
 
       <div className="filters">
         <button className="fchip" aria-pressed={statusFilter === "all"} onClick={() => setStatusFilter("all")}>
-          전체 <span className="c num">{tasksQuery.data?.length ?? 0}</span>
+          전체 <span className="c num">{tasks.length}</span>
         </button>
         {(Object.keys(STATUS_LABEL) as TaskStatus[]).map((s) => (
           <button key={s} className="fchip" aria-pressed={statusFilter === s} onClick={() => setStatusFilter(s)}>
@@ -88,8 +99,7 @@ export function AnnualMapPage() {
         ))}
       </div>
 
-      <QueryBoundary query={tasksQuery} isEmpty={() => filtered.length === 0} emptyTitle="조건에 맞는 업무가 없습니다">
-        {() => (
+      {isPending ? <div className="card card-pad">업무 지도를 불러오는 중입니다.</div> : failedQuery ? <div className="card card-pad">업무 지도를 불러오지 못했습니다.</div> : (
           <section className="card card-pad">
             <div className="map-scroll">
               <div className="map-inner">
@@ -107,7 +117,7 @@ export function AnnualMapPage() {
                     style={{ left: `calc(230px + (100% - 230px) * ${(CURRENT_MONTH_INDEX + 0.9) / 12})` }}
                   />
                   {filtered.map((t) => (
-                    <MapRow key={t.id} task={t} onOpen={() => navigate(`/tasks/${t.id}`)} />
+                    <MapRow key={t.id} task={t} focused={focusTaskId === t.id} onOpen={() => navigate(`/tasks/${t.id}`, { state: taskNavigationState("/map", "연간 업무 지도", { statusFilter, categoryFilter }) })} />
                   ))}
                 </div>
               </div>
@@ -140,19 +150,18 @@ export function AnnualMapPage() {
               <span className="leg">
                 <span className="sw" style={{ background: "var(--gam)" }} />
                 <span>
-                  <span className="lt">전년도 실제 처리</span>
+                  <span className="lt">주황 점</span>
                   <br />
-                  <span className="lv">막대 내 주황 점</span>
+                  <span className="lv">작년 실제 처리일</span>
                 </span>
               </span>
             </div>
           </section>
         )}
-      </QueryBoundary>
 
       <div className="mlist" style={{ display: filtered.length ? undefined : "none" }}>
         {filtered.map((t) => (
-          <button className="mi" key={t.id} onClick={() => navigate(`/tasks/${t.id}`)}>
+          <button className="mi" key={t.id} onClick={() => navigate(`/tasks/${t.id}`, { state: taskNavigationState("/map", "연간 업무 지도", { statusFilter, categoryFilter }) })}>
             <span className="mt">{t.title}</span>
             <span className="mm">
               <span>준비 {formatShort(t.recommendedStartDate)}</span>
@@ -166,11 +175,11 @@ export function AnnualMapPage() {
   );
 }
 
-function MapRow({ task, onOpen }: { task: TaskInstance; onOpen: () => void }) {
+function MapRow({ task, focused, onOpen }: { task: TaskInstance; focused: boolean; onOpen: () => void }) {
   const start = task.timelineMonthStart + 2;
   const end = task.timelineMonthEnd + 3;
   return (
-    <div className="map-row">
+    <div className={`map-row${focused ? " focused" : ""}`} id={`task-${task.id}`}>
       <span className="map-label">
         {task.title}
         <span className="mm">

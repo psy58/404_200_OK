@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet, useMatch, useNavigate } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { AssignmentModal } from "./AssignmentModal";
+import { NewAssignmentModal } from "./NewAssignmentModal";
 import { NotificationPanel } from "./NotificationPanel";
 import { AssistantPanel } from "./AssistantPanel";
 import { UploadModal } from "@/components/upload/UploadModal";
@@ -15,8 +16,10 @@ const ROUTE_SHORTCUTS: Record<string, string> = { h: "/home", m: "/map", d: "/do
 
 export function AppShell() {
   const [navOpen, setNavOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem("gam-sidebar-collapsed") === "true");
   const { overlay, open, close } = useOverlay();
   const navigate = useNavigate();
+  const taskMatch = useMatch("/tasks/:taskId");
   const gPressed = useRef(false);
   const gTimer = useRef<ReturnType<typeof setTimeout>>();
 
@@ -24,6 +27,10 @@ export function AppShell() {
     document.body.classList.toggle("nav-on", navOpen);
     return () => document.body.classList.remove("nav-on");
   }, [navOpen]);
+
+  useEffect(() => {
+    localStorage.setItem("gam-sidebar-collapsed", String(sidebarCollapsed));
+  }, [sidebarCollapsed]);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -35,7 +42,11 @@ export function AppShell() {
       }
       if (e.key === "/" && !typing) {
         e.preventDefault();
-        document.getElementById("q")?.focus();
+        if (window.matchMedia("(max-width: 760px)").matches) {
+          document.getElementById("mobile-search-trigger")?.click();
+        } else {
+          document.getElementById("q")?.focus();
+        }
         return;
       }
       if (typing) return;
@@ -59,22 +70,23 @@ export function AppShell() {
   }, [close, navigate]);
 
   return (
-    <div className="app">
+    <div className={`app${sidebarCollapsed ? " side-collapsed" : ""}`}>
       <div className="side-scrim" onClick={() => setNavOpen(false)} />
-      <Sidebar onNavigate={() => setNavOpen(false)} />
+      <Sidebar collapsed={sidebarCollapsed} onNavigate={() => setNavOpen(false)} onToggleCollapse={() => setSidebarCollapsed((value) => !value)} />
       <div className="main">
-        <Topbar onToggleNav={() => setNavOpen((v) => !v)} />
+        <Topbar navOpen={navOpen} onToggleNav={() => setNavOpen((v) => !v)} />
         <main className="view" id="view" tabIndex={-1}>
           <Outlet />
         </main>
       </div>
 
-      <button className="fab" onClick={() => open("assistant")}>
+      <button className="fab" onClick={() => open("assistant", taskMatch?.params.taskId)}>
         <AssistantIcon />
-        업무 도우미
+        AI 감
       </button>
 
       {overlay?.kind === "assign" && <AssignmentModal onClose={close} />}
+      {overlay?.kind === "new-assignment" && <NewAssignmentModal onClose={close} onNext={() => open("upload")} />}
       {overlay?.kind === "notifications" && <NotificationPanel onClose={close} />}
       {overlay?.kind === "assistant" && <AssistantPanel taskId={overlay.taskId} onClose={close} />}
       {overlay?.kind === "upload" && <UploadModal onClose={close} />}

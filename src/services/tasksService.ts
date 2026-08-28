@@ -2,8 +2,10 @@ import { adaptTaskDetail, adaptTask } from "@/domain/adapters";
 import { RawTaskDetailSchema, RawTaskSchema, RawTasksResponseSchema } from "@/domain/raw-schemas";
 import type { TaskDetail, TaskInstance } from "@/domain/types";
 import { NotFoundIssue, fetchMock, postApi } from "./mockClient";
+import { HAKMATONG_ID, getHakmatongTasks } from "@/state/hakmatongDemo";
 
 export async function getTasks(assignmentId: string, signal?: AbortSignal): Promise<TaskInstance[]> {
+  if (assignmentId === HAKMATONG_ID) return getHakmatongTasks();
   const raw = await fetchMock("/mocks/backend/tasks.json", RawTasksResponseSchema, { signal });
   return raw.items.filter((t) => t.assignment_id === assignmentId).map(adaptTask);
 }

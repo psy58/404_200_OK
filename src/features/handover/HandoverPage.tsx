@@ -45,16 +45,16 @@ export function HandoverPage() {
     <div className="stack">
       <div className="page-head">
         <div>
-          <span className="eyebrow">{school?.academicYear ?? ""}학년도 · 자동 축적</span>
+          <span className="eyebrow">{school?.academicYear ?? ""}학년도</span>
           <h1 className="t-display" style={{ marginTop: 9 }}>인수인계서 초안</h1>
-          <p className="sub">연말에 새로 쓰는 문서가 아니라, 1년간의 업무 기록에서 자동으로 만들어집니다.</p>
+          <p className="sub">올해 업무 기록으로 만든 인수인계 초안입니다.</p>
         </div>
         <div style={{ display: "flex", gap: 9 }}>
           <button className="btn btn-quiet" onClick={() => open("review")}>
             메모 검토 모드
           </button>
-          <button className="btn btn-primary" disabled>
-            내보내기 (백엔드 연결 전)
+          <button className="btn btn-primary" disabled title="내보내기 기능은 준비 중입니다">
+            내보내기
           </button>
         </div>
       </div>
@@ -72,7 +72,7 @@ export function HandoverPage() {
         <h2 className="t-display" style={{ marginTop: 10 }}>
           {school?.academicYear ?? ""}학년도 {activeAssignment?.name ?? ""} 업무 인수인계
         </h2>
-        <p className="t-cap" style={{ marginTop: 8 }}>작성 기준일 2026.08.28 · 담당 박새연 · 자동 생성 초안</p>
+        <p className="t-cap" style={{ marginTop: 8 }}>작성 기준일 2026.08.28 · 담당 박새연 · 검토 전 초안</p>
 
         <h3>1. 연간 업무 흐름</h3>
         {tasks.slice(0, 6).map((t) => (
