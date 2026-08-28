@@ -177,3 +177,30 @@ def test_month_axis_starts_in_march() -> None:
     assert _month_index("2026-08-31") == 5
     assert _month_index("2027-02-15") == 11
     assert _month_index(None) == 0
+
+
+# --- optional vs nullable ----------------------------------------------------
+#
+# zod 의 .optional() 은 "키가 없어도 된다"이고 null 은 허용하지 않는다.
+# .nullable() 은 반대로 키가 반드시 있어야 한다. 실제로 상세 화면이
+# guideline_change_notice: null 때문에 ContractIssue 로 죽은 적이 있다.
+
+
+def test_optional_fields_are_omitted_not_sent_as_null(api) -> None:
+    task_id = first_task_id(api)
+    if task_id is None:
+        pytest.skip("생성된 워크플로가 없습니다.")
+    detail = get(api, f"/api/frontend/task-details/{task_id}")
+    if "guideline_change_notice" in detail:
+        assert isinstance(detail["guideline_change_notice"], str)
+
+    for item in get(api, "/api/frontend/assignments")["items"]:
+        if "note" in item:
+            assert isinstance(item["note"], str)
+
+
+def test_nullable_fields_always_keep_their_key(api) -> None:
+    for item in get(api, "/api/frontend/feed")["items"]:
+        assert "related_task_id" in item  # null 이어도 키는 있어야 한다
+    for item in get(api, "/api/frontend/notifications")["items"]:
+        assert "related_task_id" in item

@@ -25,11 +25,19 @@ router = APIRouter()
 alias = APIRouter()  # /mocks/backend/*.json
 
 
-def _register(path: str, name: str, handler, response_model, summary: str) -> None:
-    router.get(f"/{path}", response_model=response_model, summary=summary)(handler)
-    alias.get(f"/{path}{name}", response_model=response_model, include_in_schema=False)(
-        handler
-    )
+def _register(
+    path: str, name: str, handler, response_model, summary: str,
+    exclude_none: bool = False,
+) -> None:
+    """같은 핸들러를 정식 경로와 mock 별칭 경로에 등록한다.
+
+    exclude_none 주의: zod 의 .optional() 필드는 값이 없으면 **키 자체가
+    없어야** 하고(null 을 보내면 검증 실패), .nullable() 필드는 반대로
+    키가 반드시 있어야 한다. 그래서 응답마다 다르게 정한다.
+    """
+    options = {"response_model": response_model, "response_model_exclude_none": exclude_none}
+    router.get(f"/{path}", summary=summary, **options)(handler)
+    alias.get(f"/{path}{name}", include_in_schema=False, **options)(handler)
 
 
 def get_assignments() -> dto.AssignmentsResponse:
@@ -56,7 +64,7 @@ def get_notifications() -> dto.NotificationsResponse:
     return frontend_service.notifications()
 
 
-_register("assignments", ".json", get_assignments, dto.AssignmentsResponse, "담당 업무(실데이터)")
+_register("assignments", ".json", get_assignments, dto.AssignmentsResponse, "담당 업무(실데이터)", exclude_none=True)
 _register("tasks", ".json", get_tasks, dto.TasksResponse, "업무 목록(실데이터)")
 _register("feed", ".json", get_feed, dto.FeedResponse, "접수 공문 피드(실데이터)")
 _register("documents", ".json", get_documents, dto.DocumentsResponse, "문서함(실데이터)")
@@ -70,6 +78,7 @@ _register("notifications", ".json", get_notifications, dto.NotificationsResponse
 @router.get(
     "/task-details/{task_id}",
     response_model=dto.TaskDetail,
+    response_model_exclude_none=True,  # guideline_change_notice 는 zod .optional()
     summary="업무 상세(실데이터)",
 )
 def get_task_detail(task_id: str) -> dto.TaskDetail:
@@ -79,6 +88,7 @@ def get_task_detail(task_id: str) -> dto.TaskDetail:
 @alias.get(
     "/task-details/{task_id}.json",
     response_model=dto.TaskDetail,
+    response_model_exclude_none=True,
     include_in_schema=False,
 )
 def get_task_detail_alias(task_id: str) -> dto.TaskDetail:
