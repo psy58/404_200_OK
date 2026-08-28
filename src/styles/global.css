@@ -49,6 +49,7 @@ body{
 }
 button,input,textarea{font:inherit;color:inherit}
 button{cursor:pointer;background:none;border:0;padding:0}
+a{color:inherit;text-decoration:none}
 :focus-visible{outline:2px solid var(--navy-600);outline-offset:2px;border-radius:6px}
 ::selection{background:var(--navy-100)}
 .num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;letter-spacing:-.02em}
