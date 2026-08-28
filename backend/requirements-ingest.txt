@@ -1,0 +1,15 @@
+# 인제스트 전용 의존성. API 서버만 띄울 때는 필요 없다.
+#   .venv/Scripts/python.exe -m pip install -r requirements-ingest.txt
+
+# 1단계: 문서 → Markdown. HWPX 지원이 들어 있는 로컬 포크를 쓴다.
+-e ../markit_down_hwpx/packages/markitdown[pdf,xlsx,xls,pptx,docx]
+
+# 구버전 HWP(OLE 복합 문서) 읽기. markitdown 변환기로 등록해서 쓴다.
+olefile>=0.47
+
+# Markdown 머리말(frontmatter)
+pyyaml>=6.0
+
+# 2단계: Markdown → 조각
+langchain-core>=0.3
+langchain-text-splitters>=0.3

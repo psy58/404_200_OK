@@ -1,0 +1,17 @@
+{
+  "feedback_id": "fb_0001",
+  "workflow_id": "science_competition",
+  "type": "missing_step",
+  "diff": {
+    "expected": [
+      "학생 선발",
+      "참가 신청"
+    ],
+    "reported": [
+      "학생 선발",
+      "개인정보 동의",
+      "참가 신청"
+    ]
+  },
+  "message": "의견이 접수되었습니다. 워크플로 개선 검토에 반영됩니다."
+}

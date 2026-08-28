@@ -4,3 +4,18 @@ dist-ssr
 *.local
 *.tsbuildinfo
 .DS_Store
+
+# --- 백엔드 (Python) ---
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# API 키가 들어 있다. 절대 올리지 않는다.
+.env
+
+# 변환·색인 결과. 학생·교직원 이름과 연락처가 들어 있다.
+backend/data/
+
+# 원본 공문. 개인정보라 저장소에 올리지 않는다.
+업무목록/
