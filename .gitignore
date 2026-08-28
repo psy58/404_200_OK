@@ -1,8 +1,30 @@
+# 로컬 참고 문서
 /docs/
 
-node_modules
-dist
-dist-ssr
+# 의존성
+/node_modules/
+
+# 빌드 산출물
+/dist/
+/dist-ssr/
+
+# 로컬 설정
 *.local
+
+# TypeScript 빌드 캐시
 *.tsbuildinfo
+
+# OS 파일
 .DS_Store
+
+# 환경변수
+.env
+.env.*
+!.env.example
+
+# AI 도구 로컬 상태
+/.codex/
+/.agents/
+
+# 로컬 디자인 참고 이미지
+/KakaoTalk_Image_*.png
