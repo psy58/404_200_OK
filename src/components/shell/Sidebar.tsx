@@ -12,6 +12,7 @@ import {
   MapNavIcon,
   NotesNavIcon,
 } from "@/lib/icons";
+import gamIcon from "@/assets/brand/gam-icon.png";
 
 export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const { school, activeAssignment } = useAssignment();
@@ -26,13 +27,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <aside className="side">
       <div className="brand">
-        <svg width="36" height="36" viewBox="0 0 100 100" aria-hidden="true">
-          <path d="M50 33c22 0 36 12 36 26.5S72 88 50 88 14 74 14 59.5 28 33 50 33z" fill="#F4581C" />
-          <path
-            d="M50 12c5 0 8.2 6 8.2 13 7-5 15.2-8 18.2-4 3 4-2 11-9 15 8 1 15 5 14 9-1 5-10 6-18 4 3 7 3 14-1 15-4 1-9-5-12.4-12-3.4 7-8.4 13-12.4 12-4-1-4-8-1-15-8 2-17 1-18-4-1-4 6-8 14-9-7-4-12-11-9-15 3-4 11.2-1 18.2 4C41.8 18 45 12 50 12z"
-            fill="#0F2647"
-          />
-        </svg>
+        <img src={gamIcon} alt="" width={36} height={36} />
         <span className="wm">
           <span className="wm1">GAM</span>
           <span className="wm2">GET A MAP</span>
