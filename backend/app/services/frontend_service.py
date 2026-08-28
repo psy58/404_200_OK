@@ -21,7 +21,7 @@ from ..errors import not_found
 from ..ingest import relations
 from ..models import frontend as dto
 from ..rag import doctype, timeline
-from . import state_store, statute_service
+from . import document_store, state_store, statute_service
 
 ASSIGNMENT_ID = "sci"  # 이 말뭉치는 전부 과학·정보 담당 문서다
 
@@ -465,15 +465,28 @@ def _custom_task_detail(task_id: str) -> dto.TaskDetail:
         )
         for index, stage in enumerate(CUSTOM_STAGES, start=1)
     ]
+    uploads = document_store.uploaded()
+    evidence = [
+        dto.EvidenceLink(
+            level="업로드 자료",
+            title=record["title"],
+            detail="담당자가 올린 현재 문서 — 업무 도우미가 이 안에서 근거를 찾습니다.",
+            source_type="school_case",  # 교육청 공문이 아니라 학교가 가진 자료
+        )
+        for _document_id, record in uploads[:EVIDENCE_LIMIT]
+    ]
+    notice = (
+        "새로 추가한 업무입니다. 작년 기록 대신 올려 둔 현재 문서를 근거로 안내합니다."
+        if uploads
+        else "새로 추가한 업무입니다. 관련 자료를 업로드하면 그 문서를 근거로 안내합니다."
+    )
     return dto.TaskDetail(
         task_id=task_id,
         checklist=checklist,
-        evidence_chain=[],
+        evidence_chain=evidence,
         previous_timeline=[],
         related_forms=[],
-        guideline_change_notice=(
-            "담당자가 직접 추가한 업무입니다. 관련 공문이 들어오면 근거가 여기에 쌓입니다."
-        ),
+        guideline_change_notice=notice,
     )
 
 
@@ -767,12 +780,25 @@ def _resolve_workflow(task_id: str) -> dict | None:
     return next((w for w in store.workflows if w["workflow_id"] == lookup), None)
 
 
+def custom_task_title(task_id: str) -> str | None:
+    """직접 추가한 업무의 이름. 그런 업무가 아니면 None."""
+    if not task_id.startswith(CUSTOM_PREFIX):
+        return None
+    return next(
+        (r["title"] for r in state_store.custom_tasks() if r["id"] == task_id), None
+    )
+
+
 def task_document_ids(task_id: str) -> list[str]:
     """이 업무(올해 + 작년 사업)에 속한 문서 전부. 첨부까지 포함한다.
 
     업무 도우미가 이 목록으로 검색 범위를 좁힌다. 계획서 알맹이는 대개
     첨부에 있으므로 본문만 넣으면 정작 내용이 검색되지 않는다.
     """
+    if task_id.startswith(CUSTOM_PREFIX):
+        # 새로 추가한 업무 — 작년 사업 기록이 없다. 전년도 공문을 뒤지는 대신
+        # 담당자가 올린 현재 문서를 검색 범위로 준다.
+        return [document_id for document_id, _ in document_store.uploaded()]
     store = _store.ensure()
     workflow = _resolve_workflow(task_id)
     if workflow is None:

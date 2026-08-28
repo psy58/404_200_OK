@@ -25,7 +25,17 @@ const QUICK_ACTIONS: Array<{ label: string; question: string }> = [
   { label: "서류 챙기기", question: "제출해야 하는 서류와 기한을 정리해줘" },
 ];
 
+// 직접 추가한 새 업무(cust_) — 작년 기록이 없으니 "작년과 비교"를 묻게 하지 않는다.
+// 백엔드도 이 업무는 올려 둔 현재 문서 안에서만 근거를 찾는다.
+const NEW_TASK_ACTIONS: Array<{ label: string; question: string }> = [
+  { label: "업무 감 잡기", question: "올린 자료를 기준으로 이 업무를 어떻게 진행하면 좋을지 정리해줘" },
+  { label: "자료 훑기", question: "올린 자료에서 핵심 내용만 뽑아줘" },
+  { label: "일정 챙기기", question: "올린 자료에 나온 날짜와 기한을 정리해줘" },
+  { label: "서류 챙기기", question: "준비해야 하는 서류를 정리해줘" },
+];
+
 const SUGGESTIONS = ["지금 내가 해야 할 게 뭐야?", "작년이랑 달라진 점 알려줘", "제출 서류가 뭐야?"];
+const NEW_TASK_SUGGESTIONS = ["지금 내가 해야 할 게 뭐야?", "올린 자료 요약해줘", "준비물이 뭐야?"];
 
 export function AssistantPanel({ taskId, onClose }: { taskId?: string; onClose: () => void }) {
   const { activeAssignmentId } = useAssignment();
@@ -40,6 +50,9 @@ export function AssistantPanel({ taskId, onClose }: { taskId?: string; onClose: 
   });
   // 업무 상세에서 열었을 때만 그 업무로 한정한다. 전역 버튼이면 전체에서 찾는다.
   const task = taskId ? tasksQuery.data?.find((item) => item.id === taskId) : undefined;
+  const isNewTask = !!taskId?.startsWith("cust_");
+  const actions = isNewTask ? NEW_TASK_ACTIONS : QUICK_ACTIONS;
+  const suggestions = isNewTask ? NEW_TASK_SUGGESTIONS : SUGGESTIONS;
 
   const mutation = useMutation<AssistantAnswer, Error, string>({
     mutationFn: (q) => askAssistant(q, taskId),
@@ -98,8 +111,12 @@ export function AssistantPanel({ taskId, onClose }: { taskId?: string; onClose: 
     >
       <div className="ai-gam-panel">
         <p className="ai-gam-lead">
-          {task ? "지금 보고 있는 업무의 문서 안에서 찾아 답해요." : "전체 공문에서 찾아 답해요."} 근거 없이 답하지
-          않아요.
+          {task
+            ? isNewTask
+              ? "새로 추가한 업무예요. 올려 둔 자료 안에서 찾아 답해요."
+              : "지금 보고 있는 업무의 문서 안에서 찾아 답해요."
+            : "전체 공문에서 찾아 답해요."}{" "}
+          근거 없이 답하지 않아요.
         </p>
         {task && (
           <div className="ai-context">
@@ -112,7 +129,7 @@ export function AssistantPanel({ taskId, onClose }: { taskId?: string; onClose: 
         )}
 
         <div className="ai-actions" aria-label="AI 감 빠른 질문">
-          {QUICK_ACTIONS.map((action) => (
+          {actions.map((action) => (
             <button
               key={action.label}
               type="button"
@@ -177,7 +194,7 @@ export function AssistantPanel({ taskId, onClose }: { taskId?: string; onClose: 
           !mutation.isPending && (
             <div className="ai-suggestions">
               <span>이렇게 물어보세요</span>
-              {SUGGESTIONS.map((text) => (
+              {suggestions.map((text) => (
                 <button key={text} type="button" onClick={() => submit(text)}>
                   {text}
                 </button>

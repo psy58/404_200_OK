@@ -271,7 +271,7 @@ def test_created_task_has_a_workable_checklist(client) -> None:
     ).json()
     detail = client.get(f"/api/frontend/task-details/{created['id']}").json()
     assert len(detail["checklist"]) == created["checklist_total"]
-    assert "직접 추가한 업무" in detail["guideline_change_notice"]
+    assert "새로 추가한 업무" in detail["guideline_change_notice"]
 
     # 확인하면 목록 상태가 진행중으로 바뀐다
     client.post(
@@ -337,3 +337,49 @@ def test_created_assignment_survives_restart(client, tmp_path) -> None:
 
 def test_empty_assignment_name_is_rejected(client) -> None:
     assert client.post("/api/frontend/assignments", json={"name": " "}).status_code == 422
+
+
+# --- 새 업무(작년 기록 없음)는 현재 문서 기준 -----------------------------------
+
+
+def test_custom_task_scope_is_uploaded_documents(client):
+    """직접 추가한 업무의 검색 범위는 전년도 공문이 아니라 업로드 문서다."""
+    from app.services import document_store, frontend_service
+
+    task = client.post("/api/frontend/tasks", json={"title": "별빛 관측 준비"}).json()
+    ids = frontend_service.task_document_ids(task["id"])
+    assert ids == [document_id for document_id, _ in document_store.uploaded()]
+
+
+def test_custom_task_detail_leans_on_uploads(client, monkeypatch):
+    """새 업무 상세는 업로드 문서를 근거로 보여 주고, 작년 흐름은 비워 둔다."""
+    from app.services import document_store
+
+    monkeypatch.setattr(
+        document_store,
+        "uploaded",
+        lambda: [("doc_up_x", {"title": "올해 운영 계획", "source_type": "hwpx"})],
+    )
+    task = client.post("/api/frontend/tasks", json={"title": "별빛 관측 준비"}).json()
+    detail = client.get(f"/api/frontend/task-details/{task['id']}").json()
+    assert detail["previous_timeline"] == []
+    assert [e["title"] for e in detail["evidence_chain"]] == ["올해 운영 계획"]
+    assert detail["evidence_chain"][0]["level"] == "업로드 자료"
+    assert "새로 추가한 업무" in detail["guideline_change_notice"]
+
+
+def test_new_task_query_without_uploads_asks_for_materials(client, monkeypatch):
+    """자료가 없는 새 업무 질의는 전년도 공문을 뒤지지 않고 자료를 청한다."""
+    from app.models.query import QueryRequest
+    from app.rag import answer as answer_module
+    from app.services import document_store, query_service
+
+    task = client.post("/api/frontend/tasks", json={"title": "별빛 관측 준비"}).json()
+    monkeypatch.setattr(document_store, "uploaded", lambda: [])
+    # searcher=None — 검색이 한 번이라도 불리면 AttributeError 로 터진다.
+    engine = query_service.RagQueryEngine(searcher=None, llm=None)
+    response = engine.answer(
+        QueryRequest(query="뭘 준비해야 해?", workflow_id=task["id"])
+    )
+    assert response.message == answer_module.NO_UPLOAD_MESSAGE
+    assert response.data.documents == []

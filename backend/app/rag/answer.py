@@ -46,6 +46,11 @@ USER_PROMPT = """담당 교사의 질문에 답하세요.
 {evidence}
 ---"""
 
+NO_UPLOAD_MESSAGE = (
+    "새로 추가한 업무라 아직 근거 문서가 없습니다. 관련 자료(계획서·공문)를 "
+    "업로드하면 그 문서를 근거로 안내해 드립니다."
+)
+
 NO_EVIDENCE_MESSAGE = (
     "관련 문서를 찾지 못했습니다. 질문을 조금 더 구체적으로 적어 주시거나, "
     "업무 이름으로 다시 물어봐 주세요."
@@ -144,17 +149,34 @@ def _reference_frame(today) -> str:
     )
 
 
+def _new_task_note(name: str) -> str:
+    """올해 새로 추가한 업무 — 작년 기록이 없다. 현재 문서만으로 답하게 한다."""
+    return (
+        "\n현재 업무: " + name +
+        "\n이 업무는 담당자가 올해 새로 추가한 업무로, 작년 기록이 없다. "
+        "위 근거는 담당자가 올린 현재 문서다. 이 문서 내용만으로 답하고, "
+        "작년 사례나 다른 사업의 흐름을 추정해서 덧붙이지 마라."
+    )
+
+
 def build_prompt(
     query: str,
     hits: list[Hit],
     workflow: WorkflowContext | None,
     timeline=None,
     today=None,
+    new_task: str | None = None,
 ) -> str:
+    if workflow:
+        context = workflow.render()
+    elif new_task:
+        context = _new_task_note(new_task)
+    else:
+        context = ""
     return USER_PROMPT.format(
         query=query,
         reference_frame=_reference_frame(today),
-        workflow_context=workflow.render() if workflow else "",
+        workflow_context=context,
         timeline=format_timeline(timeline or []),
         evidence=format_evidence(hits),
     )
@@ -167,6 +189,7 @@ def write_message(
     workflow: WorkflowContext | None = None,
     timeline=None,
     today=None,
+    new_task: str | None = None,
 ) -> str:
     """답변 문장 하나를 만든다.
 
@@ -179,7 +202,7 @@ def write_message(
     response = llm.invoke(
         [
             ("system", SYSTEM_PROMPT),
-            ("human", build_prompt(query, hits, workflow, timeline, today)),
+            ("human", build_prompt(query, hits, workflow, timeline, today, new_task)),
         ]
     )
     return (response.content or "").strip() or FALLBACK_MESSAGE
