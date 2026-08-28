@@ -72,9 +72,12 @@ class BusinessKey:
 def _year_from(title: str, fallback_date: str | None) -> int | None:
     match = _YEAR.search(title)
     if match:
-        return int(match.group(1))
-    if fallback_date and len(fallback_date) >= 4 and fallback_date[:4].isdigit():
-        return int(fallback_date[:4])  # 제목에 없으면 문서 날짜를 쓴다
+        return int(match.group(1))  # 제목의 연도는 그 사업이 향하는 해다
+    # 제목에 없으면 문서 날짜의 "학년도"를 쓴다. 학년도는 3월에 시작하므로
+    # 2026년 1월 공문은 2025학년도 일이다.
+    if fallback_date and len(fallback_date) >= 7 and fallback_date[:4].isdigit():
+        year, month = int(fallback_date[:4]), int(fallback_date[5:7] or 1)
+        return year if month >= 3 else year - 1
     return None
 
 

@@ -13,7 +13,7 @@
 """
 
 import json
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from .. import settings
@@ -24,8 +24,27 @@ from ..rag import doctype, timeline
 from . import statute_service
 
 ASSIGNMENT_ID = "sci"  # 이 말뭉치는 전부 과학·정보 담당 문서다
-SCHOOL = dto.School(id="sch_seg", name="숭의여자고등학교", academic_year=2025)
-ACADEMIC_YEAR_START = "2025-03-01"
+
+# 시험에서 오늘을 고정할 때 쓴다. None 이면 실제 오늘.
+TODAY_OVERRIDE: date | None = None
+
+
+def _today() -> date:
+    return TODAY_OVERRIDE or date.today()
+
+
+def _academic_year(day: date) -> int:
+    """학년도는 3월에 시작한다. 2026년 1월은 2025학년도다."""
+    return day.year if day.month >= 3 else day.year - 1
+
+
+def _school() -> dto.School:
+    return dto.School(
+        id="sch_seg", name="숭의여자고등학교", academic_year=_academic_year(_today())
+    )
+
+
+PROJECTED_PREFIX = "wf26_"  # 작년 업무에서 투영한 올해 업무의 id 접두어
 
 FEED_LIMIT = 12
 DOCUMENT_LIMIT = 60
@@ -116,16 +135,17 @@ def _source_type(node: dict) -> str:
 
 def assignments() -> dto.AssignmentsResponse:
     store = _store.ensure()
+    year = _academic_year(_today())
     return dto.AssignmentsResponse(
-        school=SCHOOL,
+        school=_school(),
         items=[
             dto.Assignment(
                 id=ASSIGNMENT_ID,
                 name="과학·정보",
-                active_from=ACADEMIC_YEAR_START,
+                active_from=f"{year}-03-01",
                 status="server_allowed",
-                note=f"공문 {len(store.nodes):,}건에서 업무 {len(store.workflows)}개를 자동 구성",
-                task_count=len(store.workflows),
+                note=f"작년 공문 {len(store.nodes):,}건에서 올해 업무를 자동 구성",
+                task_count=len(tasks().items),
             )
         ],
     )
@@ -148,7 +168,7 @@ def _workflow_dates(workflow: dict) -> tuple[str, str]:
         step["completed_at"] for step in workflow["steps"] if step.get("completed_at")
     )
     if not dates:
-        fallback = workflow.get("updated_at") or ACADEMIC_YEAR_START
+        fallback = workflow.get("updated_at") or f"{workflow.get('year') or _academic_year(_today())}-03-01"
         return fallback, fallback
     return dates[0], dates[-1]
 
@@ -181,9 +201,80 @@ def _to_task(workflow: dict) -> dto.Task:
     )
 
 
+def _shift_year(value: str) -> str:
+    """작년 날짜를 올해 자리로 옮긴다. 2025-08-14 → 2026-08-14."""
+    try:
+        return f"{int(value[:4]) + 1}{value[4:]}"
+    except (ValueError, TypeError):
+        return value
+
+
+def _series(store: _Store) -> dict[str, dict[int | None, dict]]:
+    """사업 이름 → {학년도: 워크플로}. 올해와 작년을 짝짓는 데 쓴다."""
+    series: dict[str, dict[int | None, dict]] = {}
+    for workflow in store.workflows:
+        series.setdefault(workflow["business_name"], {})[workflow.get("year")] = workflow
+    return series
+
+
+def _project_task(previous: dict) -> dto.Task:
+    """작년 업무를 올해 자리로 투영한다.
+
+    학교 업무는 대부분 해마다 되풀이된다. 올해 문서가 아직 없어도 작년 흐름이
+    "언제 시작해서 언제 끝냈는지"를 알려 주므로, 그 날짜를 한 해 밀어 올해
+    권장 일정으로 삼는다. 이것이 이 서비스의 요지다 — 작년 문서가 올해 업무를
+    예고한다.
+    """
+    year = _academic_year(_today())
+    first, last = _workflow_dates(previous)
+    start, due = _shift_year(first), _shift_year(last)
+
+    # 문서가 하나도 없으니 진행중일 수 없다. 시기가 오면 준비, 멀면 예정.
+    status = "upcoming" if start <= (_today() + timedelta(days=14)).isoformat() else "planned"
+
+    steps = previous["steps"]
+    return dto.Task(
+        id=PROJECTED_PREFIX + previous["workflow_id"].removeprefix("wf_"),
+        assignment_id=ASSIGNMENT_ID,
+        title=f"{year}년 {previous['business_name']}",
+        category=_TEMPLATE_CATEGORY.get(previous.get("template_id", ""), "일반"),
+        status=status,
+        recommended_start_date=start,
+        official_due_date=due,
+        previous_actual_date=previous.get("updated_at") or last,  # 작년 실제 처리일
+        checklist_done=0,
+        checklist_total=len(steps),
+        timeline_month_start=_month_index(start),
+        timeline_month_end=max(_month_index(start), _month_index(due)),
+        rationale=(
+            f"작년에는 {first}부터 {last}까지 진행했다 (공문 {previous.get('document_count', 0)}건). "
+            f"올해 문서는 아직 없다 — 작년 흐름을 근거로 한 권장 일정이다."
+        ),
+    )
+
+
 def tasks() -> dto.TasksResponse:
+    """올해(현재 학년도) 업무 목록.
+
+    올해 문서가 이미 있는 사업은 그대로, 없는 사업은 작년 업무를 투영해
+    싣는다. 작년 기록 자체는 각 업무 상세의 '작년 진행 흐름'으로 남는다.
+    """
     store = _store.ensure()
-    return dto.TasksResponse(items=[_to_task(w) for w in store.workflows])
+    year = _academic_year(_today())
+
+    items = []
+    for by_year in _series(store).values():
+        current, previous = by_year.get(year), by_year.get(year - 1)
+        if current:
+            task = _to_task(current)
+            if previous:  # 작년 실제 처리일은 작년 기록에서 온다
+                task.previous_actual_date = previous.get("updated_at") or task.previous_actual_date
+            items.append(task)
+        elif previous:
+            items.append(_project_task(previous))
+
+    items.sort(key=lambda t: t.recommended_start_date)
+    return dto.TasksResponse(items=items)
 
 
 # --- task detail -------------------------------------------------------------
@@ -221,10 +312,40 @@ def _workflow_documents(workflow: dict, store: _Store) -> list[tuple[str, dict, 
     return rows
 
 
+def _sibling(store: _Store, workflow: dict, year: int) -> dict | None:
+    """같은 사업의 다른 학년도 워크플로."""
+    return _series(store).get(workflow["business_name"], {}).get(year)
+
+
+def _projected_checklist(previous: dict) -> list[dto.ChecklistItem]:
+    """투영 업무의 체크리스트. 작년과 같은 단계, 전부 미완료.
+
+    첫 단계를 '지금 할 차례'로 두고, 작년에 언제 했는지를 메모로 붙인다.
+    """
+    items = []
+    for index, step in enumerate(previous["steps"]):
+        note = f"작년 {step['completed_at']} 처리" if step.get("completed_at") else ""
+        items.append(
+            dto.ChecklistItem(
+                id=step["step_id"],
+                text=step["name"],
+                note=("지금 할 차례 · " + note).rstrip(" ·") if index == 0 else note,
+                done=False,
+            )
+        )
+    return items
+
+
 def task_detail(task_id: str) -> dto.TaskDetail:
     store = _store.ensure()
+    year = _academic_year(_today())
+
+    projected = task_id.startswith(PROJECTED_PREFIX)
+    lookup_id = (
+        "wf_" + task_id.removeprefix(PROJECTED_PREFIX) if projected else task_id
+    )
     workflow = next(
-        (w for w in store.workflows if w["workflow_id"] == task_id), None
+        (w for w in store.workflows if w["workflow_id"] == lookup_id), None
     )
     if workflow is None:
         raise not_found("task_not_found", f"업무 '{task_id}'를 찾을 수 없습니다.")
@@ -266,9 +387,14 @@ def task_detail(task_id: str) -> dto.TaskDetail:
             )
         )
 
+    # "작년 진행 흐름" — 투영 업무면 이 워크플로 자체가 작년 기록이고,
+    # 올해 문서가 있는 업무면 같은 사업의 작년 워크플로에서 가져온다.
+    previous_workflow = (
+        workflow if projected else _sibling(store, workflow, year - 1)
+    ) or workflow
     previous = [
         dto.TimelineEvent(date=_event_date(node) or "", event=node.get("title") or "")
-        for _, node, _ in documents
+        for _, node, _ in _workflow_documents(previous_workflow, store)
         if _event_date(node)
     ]
 
@@ -291,12 +417,22 @@ def task_detail(task_id: str) -> dto.TaskDetail:
     seen: set[str] = set()
     forms = [f for f in forms if not (f.title in seen or seen.add(f.title))][:6]
 
+    checklist = _projected_checklist(workflow) if projected else _checklist(workflow)
+    notice = None
+    if projected:
+        first, last = _workflow_dates(workflow)
+        notice = (
+            f"올해 문서가 아직 없어 작년({first}~{last}) 기록으로 구성했습니다. "
+            "근거 문서와 서식은 모두 작년 것입니다."
+        )
+
     return dto.TaskDetail(
         task_id=task_id,
-        checklist=_checklist(workflow),
+        checklist=checklist,
         evidence_chain=evidence,
         previous_timeline=previous,
         related_forms=forms,
+        guideline_change_notice=notice,
     )
 
 
@@ -375,31 +511,45 @@ def experience_notes() -> dto.ExperienceNotesResponse:
 
 
 def notifications() -> dto.NotificationsResponse:
-    store = _store.ensure()
-    active = [
-        w
-        for w in store.workflows
-        if any(step["status"] == "current" for step in w["steps"])
-    ]
-    active.sort(key=lambda w: w.get("updated_at") or "", reverse=True)
+    """올해 업무의 시기 알림.
 
-    latest = max(
-        (w.get("updated_at") or "" for w in store.workflows), default=""
-    )
+    작년 이맘때 시작한 업무가 다가오거나 지났으면 알린다. 이것이 이 서비스가
+    담당자에게 해 주는 핵심 말이다 — "작년엔 지금쯤 이걸 하고 있었다."
+    """
+    today = _today().isoformat()
+    soon = (_today() + timedelta(days=30)).isoformat()
+
+    candidates = []
+    for task in tasks().items:
+        if task.status == "complete":
+            continue
+        start = task.recommended_start_date
+        if start <= today:
+            candidates.append((start, "지남", task))
+        elif start <= soon:
+            candidates.append((start, "임박", task))
+
+    # 최근에 지난 것(가장 시급한 것)부터
+    candidates.sort(key=lambda row: row[0], reverse=True)
 
     items = []
-    for index, workflow in enumerate(active[:NOTIFICATION_LIMIT], start=1):
-        current = next(s for s in workflow["steps"] if s["status"] == "current")
-        done = sum(1 for s in workflow["steps"] if s["status"] == "completed")
+    for index, (start, phase, task) in enumerate(
+        candidates[:NOTIFICATION_LIMIT], start=1
+    ):
+        if phase == "지남":
+            title = f"{task.title} · 권장 준비 시작일이 지났습니다"
+            kind = "prep"
+        else:
+            title = f"{task.title} · 준비 시작 권장"
+            kind = "due"
         items.append(
             dto.Notification(
                 id=f"gen_{index}",
-                title=f"{workflow['name']} · 다음 할 일: {current['name']}",
-                message=f"{workflow.get('updated_at') or ''} 기준 · "
-                f"{done}/{len(workflow['steps'])} 단계 완료",
-                kind="prep",
-                is_new=workflow.get("updated_at") == latest,
-                related_task_id=workflow["workflow_id"],
+                title=title,
+                message=f"작년 기준 시작 {start} · 작년 처리 {task.previous_actual_date}",
+                kind=kind,
+                is_new=phase == "임박" or start >= (_today() - timedelta(days=14)).isoformat(),
+                related_task_id=task.id,
             )
         )
     return dto.NotificationsResponse(items=items)

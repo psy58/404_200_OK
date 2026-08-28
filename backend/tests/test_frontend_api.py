@@ -204,3 +204,94 @@ def test_nullable_fields_always_keep_their_key(api) -> None:
         assert "related_task_id" in item  # null 이어도 키는 있어야 한다
     for item in get(api, "/api/frontend/notifications")["items"]:
         assert "related_task_id" in item
+
+
+# --- 올해 업무 투영 -----------------------------------------------------------
+#
+# 지금은 2026학년도다. 작년(2025-03~2026-02) 공문은 "작년 기록"이고,
+# 화면의 내 업무는 올해 것이어야 한다. 올해 문서가 없는 사업은 작년 흐름을
+# 한 해 밀어 권장 일정으로 보여 준다.
+
+
+@pytest.fixture(autouse=True)
+def fixed_today():
+    from datetime import date
+
+    from app.services import frontend_service
+
+    frontend_service.TODAY_OVERRIDE = date(2026, 8, 29)
+    yield
+    frontend_service.TODAY_OVERRIDE = None
+
+
+def test_academic_year_starts_in_march() -> None:
+    from datetime import date
+
+    from app.services.frontend_service import _academic_year
+
+    assert _academic_year(date(2026, 8, 29)) == 2026
+    assert _academic_year(date(2026, 1, 15)) == 2025  # 1월은 아직 작년 학년도
+
+
+def test_school_reports_the_current_academic_year(api) -> None:
+    body = get(api, "/api/frontend/assignments")
+    assert body["school"]["academic_year"] == 2026
+
+
+def test_tasks_are_for_this_year_not_last_year(api) -> None:
+    """모든 업무가 올해(2026학년도) 것이어야 한다.
+
+    단, 시작일은 작년일 수 있다 — 다음 해 사업의 공모 안내는 전년도
+    말에 온다(실제로 2026년 AI 중점학교 공모가 2025-12-29에 접수됐다).
+    투영된 업무의 권장 일정만 올해 날짜다.
+    """
+    items = get(api, "/api/frontend/tasks")["items"]
+    if not items:
+        pytest.skip("생성된 워크플로가 없습니다.")
+    for item in items:
+        assert item["title"].startswith("2026년"), item["title"]
+        if item["id"].startswith("wf26_"):
+            assert item["recommended_start_date"] >= "2026-"
+
+
+def test_projected_task_is_honest_about_having_no_documents(api) -> None:
+    items = get(api, "/api/frontend/tasks")["items"]
+    projected = [t for t in items if t["id"].startswith("wf26_")]
+    if not projected:
+        pytest.skip("투영된 업무가 없습니다.")
+    for task in projected:
+        assert task["checklist_done"] == 0  # 올해 문서가 없으니 완료도 없다
+        assert task["status"] in {"upcoming", "planned"}  # 진행중이라 말하지 않는다
+        assert task["previous_actual_date"] < "2026-03"  # 작년 실제 처리일
+
+
+def test_projected_detail_carries_last_years_record(api) -> None:
+    items = get(api, "/api/frontend/tasks")["items"]
+    projected = next((t for t in items if t["id"].startswith("wf26_")), None)
+    if projected is None:
+        pytest.skip("투영된 업무가 없습니다.")
+
+    detail = get(api, f"/api/frontend/task-details/{projected['id']}")
+    assert all(not c["done"] for c in detail["checklist"])
+    # 작년 진행 흐름이 참조로 실린다
+    assert detail["previous_timeline"]
+    assert all(e["date"] < "2026-03" for e in detail["previous_timeline"])
+    # 작년 기록으로 구성했다고 밝힌다
+    assert "작년" in detail.get("guideline_change_notice", "")
+
+
+def test_real_current_year_task_links_last_years_timeline(api) -> None:
+    """올해 문서가 있는 업무도 '작년 진행 흐름'은 작년 워크플로에서 온다."""
+    items = get(api, "/api/frontend/tasks")["items"]
+    real = next((t for t in items if not t["id"].startswith("wf26_")), None)
+    if real is None:
+        pytest.skip("올해 실문서 업무가 없습니다.")
+    detail = get(api, f"/api/frontend/task-details/{real['id']}")
+    assert detail["task_id"] == real["id"]
+
+
+def test_notifications_point_at_current_year_tasks(api) -> None:
+    task_ids = {t["id"] for t in get(api, "/api/frontend/tasks")["items"]}
+    for item in get(api, "/api/frontend/notifications")["items"]:
+        assert item["related_task_id"] in task_ids
+        assert "작년" in item["message"]  # 알림의 근거는 작년 기록이다
