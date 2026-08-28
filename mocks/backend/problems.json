@@ -1,0 +1,82 @@
+{
+  "schema_version": "ui-api-boundary-v2.mock.1",
+  "contract_status": "MOCK_ONLY",
+  "items": [
+    {
+      "type": "https://example.invalid/problems/unauthorized",
+      "title": "로그인이 필요합니다",
+      "status": 401,
+      "detail": "세션이 종료되었습니다. 다시 로그인해 주세요.",
+      "instance": "/session",
+      "code": "SESSION_REQUIRED",
+      "trace_id": "trace-demo-401"
+    },
+    {
+      "type": "https://example.invalid/problems/forbidden",
+      "title": "접근 권한이 없습니다",
+      "status": 403,
+      "detail": "현재 담당 업무에서는 이 자료를 열 수 없습니다.",
+      "instance": "/tasks/task-ai-week",
+      "code": "RESOURCE_FORBIDDEN",
+      "trace_id": "trace-demo-403"
+    },
+    {
+      "type": "https://example.invalid/problems/not-found",
+      "title": "자료를 찾을 수 없습니다",
+      "status": 404,
+      "detail": "삭제되었거나 이동된 자료입니다. 목록으로 돌아가세요.",
+      "instance": "/documents/document-missing",
+      "code": "RESOURCE_NOT_FOUND",
+      "trace_id": "trace-demo-404"
+    },
+    {
+      "type": "https://example.invalid/problems/idempotency-conflict",
+      "title": "같은 요청 식별자가 다른 변경에 사용되었습니다",
+      "status": 409,
+      "detail": "새 요청 식별자로 다시 시도하세요.",
+      "instance": "/mutations",
+      "code": "IDEMPOTENCY_CONFLICT",
+      "trace_id": "trace-demo-409"
+    },
+    {
+      "type": "https://example.invalid/problems/version-conflict",
+      "title": "다른 변경사항이 먼저 저장되었습니다",
+      "status": 412,
+      "detail": "최신 내용을 확인한 뒤 내 변경을 다시 적용하세요.",
+      "instance": "/tasks/task-ai-week/checklist/check-budget",
+      "code": "VERSION_CONFLICT",
+      "trace_id": "trace-demo-412"
+    },
+    {
+      "type": "https://example.invalid/problems/validation",
+      "title": "입력 내용을 확인해 주세요",
+      "status": 422,
+      "detail": "수정이 필요한 입력이 있습니다.",
+      "instance": "/tasks/task-ai-week/experience-notes",
+      "code": "VALIDATION_FAILED",
+      "trace_id": "trace-demo-422",
+      "field_errors": [
+        { "field": "text", "message": "메모는 1자 이상 1000자 이하여야 합니다." }
+      ]
+    },
+    {
+      "type": "https://example.invalid/problems/rate-limit",
+      "title": "요청이 너무 많습니다",
+      "status": 429,
+      "detail": "잠시 후 다시 시도하세요.",
+      "instance": "/search",
+      "code": "RATE_LIMITED",
+      "trace_id": "trace-demo-429",
+      "retry_after": "2026-08-28T09:01:00+09:00"
+    },
+    {
+      "type": "https://example.invalid/problems/server-error",
+      "title": "요청을 처리하지 못했습니다",
+      "status": 500,
+      "detail": "입력은 유지됩니다. 잠시 후 다시 시도하세요.",
+      "instance": "/analysis/jobs/job-demo",
+      "code": "INTERNAL_ERROR",
+      "trace_id": "trace-demo-500"
+    }
+  ]
+}

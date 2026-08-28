@@ -1,0 +1,47 @@
+{
+  "schema_version": "ui-api-boundary-v2.mock.1",
+  "contract_status": "MOCK_ONLY",
+  "context": {
+    "user_id": "usr-demo-park",
+    "school_id": "sch-demo-hanbit",
+    "assignment_id": "asg-science",
+    "session_epoch": "session-demo-1"
+  },
+  "query": "AI 교육주간",
+  "items": [
+    {
+      "id": "result-task-ai-week",
+      "type": "task",
+      "title": "2026 AI 교육주간 운영",
+      "description": "공식 마감 2026.09.02 · 체크리스트 3/7",
+      "source": null,
+      "target": "/tasks/task-ai-week"
+    },
+    {
+      "id": "result-document-ai-week-letter",
+      "type": "document",
+      "title": "AI 교육주간 운영 협조 요청",
+      "description": "한빛교육지원청 제2026-9241호 · p.1-3",
+      "source": "official",
+      "target": "/documents/document-ai-week-letter"
+    },
+    {
+      "id": "result-school-plan-2025",
+      "type": "document",
+      "title": "2025 AI 교육주간 운영계획(내부결재)",
+      "description": "우리학교 전년도 사례",
+      "source": "school_case",
+      "target": "/documents/document-school-plan-2025"
+    },
+    {
+      "id": "result-note-instructor",
+      "type": "experience",
+      "title": "강사 섭외는 8월 첫째 주에 시작",
+      "description": "전임 담당자 · 2025학년도",
+      "source": "experience",
+      "target": "/tasks/task-ai-week#experience"
+    }
+  ],
+  "next_cursor": null,
+  "total": 4
+}
