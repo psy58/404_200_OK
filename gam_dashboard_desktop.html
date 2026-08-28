@@ -1,0 +1,1384 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>GAM · Get A Map — 학교 업무 내비게이션</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"/>
+<style>
+/* ============================================================
+   GAM Design Tokens — 데스크톱 워크스페이스 기준
+   ============================================================ */
+:root{
+  --navy-950:#071C33;
+  --navy-900:#0A2544;
+  --navy-800:#0B3159;
+  --navy-700:#0B4171;   /* Primary */
+  --navy-600:#125288;
+  --navy-500:#2C6DAE;
+  --navy-300:#7FA6C9;
+  --navy-200:#B6CFE5;
+  --navy-100:#DCE8F3;
+  --navy-050:#EFF5FA;
+
+  --bg:#F4F7FA;          /* 데스크톱 장시간 사용 기준: 캔버스를 살짝 낮춰 카드가 뜨게 함 */
+  --surface:#FFFFFF;
+  --sunken:#F8FAFC;
+
+  --line:#E2E8F0;
+  --line-soft:#EEF2F7;
+
+  --ink:#0F172A;
+  --ink-2:#475569;
+  --ink-3:#7C8BA1;
+  --ink-4:#A9B4C4;
+
+  --ok:#10B981;      --ok-bg:#E9F8F2;   --ok-ink:#067A55;
+  --warn:#F59E0B;    --warn-bg:#FEF5E6; --warn-ink:#B4740A;
+  --danger:#EF4444;  --danger-bg:#FDECEC;--danger-ink:#C93838;
+
+  --gam:#F4581C;     --gam-bg:#FEF0E9;  --gam-ink:#B84610;
+
+  --sh-1:0 1px 3px 0 rgba(15,23,42,.05);
+  --sh-2:0 6px 20px -6px rgba(11,65,113,.10), 0 1px 3px rgba(15,23,42,.04);
+  --sh-pop:0 24px 60px -16px rgba(7,28,51,.28), 0 2px 8px rgba(0,0,0,.06);
+
+  --r-card:16px; --r-ctl:10px; --r-pill:999px;
+  --sidebar:268px; --topbar:56px;
+  --ff:"Pretendard Variable",Pretendard,Inter,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Segoe UI",sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box}
+body{
+  margin:0;background:var(--bg);color:var(--ink);font-family:var(--ff);
+  font-size:14.5px;line-height:1.6;font-weight:450;letter-spacing:-.012em;
+  -webkit-font-smoothing:antialiased;
+}
+button,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer;background:none;border:0;padding:0}
+:focus-visible{outline:2px solid var(--navy-600);outline-offset:2px;border-radius:6px}
+::selection{background:var(--navy-100)}
+.num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;letter-spacing:-.02em}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+/* scrollbar — 데스크톱에서 하루 종일 보는 화면 */
+*::-webkit-scrollbar{width:11px;height:11px}
+*::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:8px;border:3px solid transparent;background-clip:content-box}
+*::-webkit-scrollbar-thumb:hover{background:#94A3B8;background-clip:content-box}
+*::-webkit-scrollbar-track{background:transparent}
+
+/* ---------- Type ---------- */
+.t-display{font-size:29px;font-weight:750;letter-spacing:-.038em;line-height:1.25;margin:0}
+.t-h1{font-size:19px;font-weight:700;letter-spacing:-.028em;margin:0}
+.t-h2{font-size:16px;font-weight:650;letter-spacing:-.024em;margin:0}
+.t-cap{font-size:12.5px;color:var(--ink-3);line-height:1.55}
+.eyebrow{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-4)}
+
+/* ============================================================
+   Shell
+   ============================================================ */
+.app{display:flex;min-height:100vh}
+
+/* ---- Sidebar ---- */
+.side{
+  width:var(--sidebar);flex:0 0 var(--sidebar);position:fixed;inset:0 auto 0 0;z-index:60;
+  background:linear-gradient(180deg,#0C2C4F 0%, #0A2340 55%, #081D36 100%);
+  color:#CBDCEC;display:flex;flex-direction:column;
+}
+.brand{padding:26px 22px 22px;display:flex;align-items:center;gap:11px}
+.brand .wm{line-height:1}
+.brand .wm1{font-size:22px;font-weight:800;color:#fff;letter-spacing:-.03em;display:block}
+.brand .wm2{font-size:9.5px;font-weight:700;letter-spacing:.24em;color:var(--gam);display:block;margin-top:5px}
+
+.ctx{
+  margin:0 16px 20px;padding:16px 17px;border-radius:14px;
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);
+}
+.ctx .lab{font-size:10.5px;font-weight:700;letter-spacing:.1em;color:#7EA0C0;text-transform:uppercase}
+.ctx .row{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-top:9px}
+.ctx .nm{font-size:16px;font-weight:700;color:#fff;letter-spacing:-.028em}
+.ctx .chg{font-size:12px;font-weight:600;color:var(--navy-200);flex:0 0 auto}
+.ctx .chg:hover{color:#fff;text-decoration:underline}
+.ctx .mt{font-size:11.5px;color:#7EA0C0;margin-top:6px}
+
+.nav{padding:0 14px;display:flex;flex-direction:column;gap:2px}
+.nav-item{
+  display:flex;align-items:center;gap:12px;width:100%;text-align:left;
+  padding:11px 13px;border-radius:11px;font-size:14.5px;font-weight:550;color:#A9C0D6;
+  transition:background .14s,color .14s;
+}
+.nav-item:hover{background:rgba(255,255,255,.07);color:#fff}
+.nav-item[aria-current="page"]{background:rgba(255,255,255,.11);color:#fff;font-weight:680;box-shadow:inset 3px 0 0 var(--gam)}
+.nav-item svg{flex:0 0 19px;opacity:.92}
+.nav-badge{
+  margin-left:auto;min-width:20px;height:20px;padding:0 6px;border-radius:var(--r-pill);
+  background:var(--danger);color:#fff;font-size:11px;font-weight:750;
+  display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums;
+}
+.nav-sep{height:1px;background:rgba(255,255,255,.1);margin:14px 13px}
+
+.side-foot{margin-top:auto;padding:20px 22px 24px;border-top:1px solid rgba(255,255,255,.07)}
+.side-foot p{margin:0;font-size:11.5px;line-height:1.65;color:#6D8CAA}
+.side-foot .em{color:#9FBDD8;font-weight:600}
+
+/* ---- Main ---- */
+.main{flex:1;min-width:0;margin-left:var(--sidebar);display:flex;flex-direction:column}
+
+.topbar{
+  height:var(--topbar);position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:14px;
+  padding:0 32px;background:rgba(244,247,250,.82);backdrop-filter:saturate(180%) blur(12px);
+  border-bottom:1px solid rgba(226,232,240,.8);
+}
+.hamb{display:none;width:34px;height:34px;border-radius:9px;align-items:center;justify-content:center;color:var(--ink-2)}
+.date-now{font-size:12.5px;font-weight:600;color:var(--ink-2);flex:0 0 auto}
+.date-now span{color:var(--ink-4);font-weight:500}
+
+.search-wrap{position:relative;flex:1;max-width:440px;margin-left:8px}
+.search{display:flex;align-items:center;gap:9px;height:36px;padding:0 13px;background:#fff;border:1px solid var(--line);border-radius:10px;transition:.15s}
+.search:focus-within{border-color:var(--navy-300);box-shadow:0 0 0 3px rgba(44,109,174,.12)}
+.search input{border:0;background:none;outline:none;flex:1;font-size:13px}
+.search input::placeholder{color:var(--ink-4)}
+.search kbd{font-family:var(--ff);font-size:10px;font-weight:600;color:var(--ink-4);border:1px solid var(--line);border-radius:4px;padding:1px 5px}
+.results{position:absolute;top:44px;left:0;right:0;background:#fff;border:1px solid var(--line);border-radius:13px;box-shadow:var(--sh-pop);padding:8px;max-height:60vh;overflow:auto;z-index:70}
+.res-item{display:block;width:100%;text-align:left;padding:10px 11px;border-radius:9px}
+.res-item:hover{background:var(--navy-050)}
+.res-item .rt{font-size:13.5px;font-weight:600}
+.res-item .rm{font-size:12px;color:var(--ink-3);margin-top:3px;display:flex;gap:7px;align-items:center}
+.res-group{padding:11px 11px 5px}
+
+.top-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.icon-btn{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:var(--ink-2);position:relative;transition:.14s}
+.icon-btn:hover{background:#fff;color:var(--navy-700);box-shadow:var(--sh-1)}
+.icon-btn .dot{position:absolute;top:6px;right:7px;width:7px;height:7px;border-radius:50%;background:var(--gam);border:2px solid var(--bg)}
+.who{display:flex;align-items:center;gap:9px;padding:4px 10px 4px 4px;border-radius:10px}
+.who:hover{background:#fff;box-shadow:var(--sh-1)}
+.ava{width:28px;height:28px;border-radius:8px;background:var(--navy-700);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+.who .n{font-size:12.5px;font-weight:650;line-height:1.3}
+.who .r{font-size:11px;color:var(--ink-3);line-height:1.3}
+
+.view{padding:34px 32px 96px;width:100%;max-width:1560px;margin:0 auto;flex:1}
+.stack{display:flex;flex-direction:column;gap:24px}
+
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap}
+.page-head .sub{margin:9px 0 0;font-size:14px;color:var(--ink-3)}
+.page-head .sub b{color:var(--ink);font-weight:700;font-variant-numeric:tabular-nums}
+
+/* ---- Card ---- */
+.card{background:var(--surface);border-radius:var(--r-card);box-shadow:var(--sh-1);border:1px solid rgba(226,232,240,.65)}
+.card-pad{padding:26px 28px}
+.card-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:22px}
+.card-head .lead{display:flex;align-items:center;gap:10px}
+.dot-m{width:7px;height:7px;border-radius:50%;flex:0 0 7px}
+.divider{height:1px;background:var(--line-soft);margin:22px -28px}
+.sec-tag{font-size:12px;font-weight:600;color:var(--ink-3);margin-bottom:6px;display:block}
+
+/* ---- Buttons ---- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:38px;padding:0 15px;border-radius:var(--r-ctl);font-size:13.5px;font-weight:650;letter-spacing:-.015em;white-space:nowrap;transition:.15s}
+.btn:active{transform:translateY(1px)}
+.btn-primary{background:var(--navy-700);color:#fff}
+.btn-primary:hover{background:var(--navy-600)}
+.btn-quiet{background:#fff;color:var(--ink-2);border:1px solid var(--line)}
+.btn-quiet:hover{border-color:var(--navy-300);color:var(--navy-700)}
+.btn-ghost{color:var(--navy-700)}
+.btn-ghost:hover{background:var(--navy-050)}
+.btn-sm{height:32px;padding:0 11px;font-size:12.5px;border-radius:8px}
+.btn[disabled]{opacity:.42;pointer-events:none}
+.link-more{font-size:13px;font-weight:650;display:inline-flex;align-items:center;gap:5px}
+.link-more:hover{text-decoration:underline}
+
+/* ---- Chips ---- */
+.chip{display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 9px;border-radius:7px;font-size:11.5px;font-weight:650;background:var(--sunken);color:var(--ink-2)}
+.chip.ok{background:var(--ok-bg);color:var(--ok-ink)}
+.chip.warn{background:var(--warn-bg);color:var(--warn-ink)}
+.chip.danger{background:var(--danger-bg);color:var(--danger-ink)}
+.chip.navy{background:var(--navy-050);color:var(--navy-700)}
+.chip.gam{background:var(--gam-bg);color:var(--gam-ink)}
+.src{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:650;padding:3px 8px;border-radius:6px}
+.src svg{width:12px;height:12px}
+.src.official{background:var(--navy-050);color:var(--navy-700)}
+.src.school{background:var(--gam-bg);color:var(--gam-ink)}
+.src.exp{background:#F1F5F9;color:#526379}
+
+/* ============================================================
+   KPI — 좌측 accent bar
+   ============================================================ */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
+.kpi{
+  position:relative;background:#fff;border-radius:var(--r-card);border:1px solid rgba(226,232,240,.65);
+  box-shadow:var(--sh-1);padding:22px 24px 20px 26px;text-align:left;width:100%;overflow:hidden;
+  transition:box-shadow .18s,transform .18s;
+}
+.kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--acc)}
+.kpi:hover{box-shadow:var(--sh-2);transform:translateY(-2px)}
+.kpi .kt{font-size:13px;font-weight:650;color:var(--ink-2)}
+.kpi .kn{display:flex;align-items:baseline;gap:3px;margin-top:12px;color:var(--acc)}
+.kpi .kn b{font-size:38px;font-weight:780;letter-spacing:-.05em;line-height:1;font-variant-numeric:tabular-nums}
+.kpi .kn i{font-style:normal;font-size:15px;font-weight:650}
+.kpi .km{font-size:12.5px;color:var(--ink-3);margin-top:12px}
+.kpi .kl{margin-top:14px;font-size:13px;font-weight:700;color:var(--acc);display:inline-flex;align-items:center;gap:5px}
+.kpi:hover .kl{text-decoration:underline}
+
+/* ---- Home 2-column ---- */
+.grid-main{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:22px;align-items:start}
+.col-side{position:sticky;top:calc(var(--topbar) + 24px);display:flex;flex-direction:column;gap:22px}
+
+/* ---- Task rows ---- */
+.trow{display:grid;grid-template-columns:60px minmax(0,1fr) 190px 22px;gap:20px;align-items:center;padding:18px 8px;width:100%;text-align:left;border-radius:12px;transition:background .14s}
+.trow:hover{background:var(--sunken)}
+.trow + .trow{border-top:1px solid var(--line-soft)}
+.dd{height:46px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:780;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.dd.d0{background:var(--danger-bg);color:var(--danger-ink)}
+.dd.d1{background:var(--warn-bg);color:var(--warn-ink)}
+.dd.d2{background:var(--navy-050);color:var(--navy-700)}
+.trow .tt{font-size:15px;font-weight:680;letter-spacing:-.025em}
+.trow .tm{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin-top:8px;font-size:12.5px;color:var(--ink-3)}
+.trow .tm .k{color:var(--ink-4)}
+.trow .tm .v{color:var(--ink-2);font-weight:650;font-variant-numeric:tabular-nums}
+.trow .tm .prev .v{color:var(--gam-ink)}
+.prog{display:flex;align-items:center;gap:11px}
+.prog .bar{flex:1;height:6px;border-radius:4px;background:var(--line);overflow:hidden}
+.prog .bar i{display:block;height:100%;background:var(--navy-700);border-radius:4px;transition:width .4s}
+.prog .pn{font-size:12.5px;font-weight:700;color:var(--ink-2);font-variant-numeric:tabular-nums;flex:0 0 auto}
+.trow .go{color:var(--ink-4);display:flex}
+.trow:hover .go{color:var(--navy-700)}
+
+/* ---- Doc feed ---- */
+.dfeed{display:flex;gap:13px;padding:16px 6px;width:100%;text-align:left;border-radius:11px;transition:background .14s}
+.dfeed:hover{background:var(--sunken)}
+.dfeed + .dfeed{border-top:1px solid var(--line-soft)}
+.dfeed .stamp{flex:0 0 42px;height:26px;border-radius:7px;background:var(--ok-bg);color:var(--ok-ink);font-size:11.5px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:2px}
+.dfeed .stamp.send{background:var(--navy-050);color:var(--navy-700)}
+.dfeed .dt{font-size:14px;font-weight:650;letter-spacing:-.022em;line-height:1.45}
+.dfeed .dm{font-size:12px;color:var(--ink-3);margin-top:5px;font-variant-numeric:tabular-nums}
+.dfeed .dl{display:flex;align-items:center;gap:6px;margin-top:9px;font-size:12.5px;font-weight:620;color:var(--navy-700)}
+.dfeed .dl svg{flex:0 0 13px;opacity:.8}
+
+/* ---- Notes ---- */
+.note{padding:20px 22px;border-radius:14px;background:#fff;border:1px solid rgba(226,232,240,.7);box-shadow:var(--sh-1)}
+.note-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.note p{margin:0;font-size:14px;line-height:1.72}
+.note-foot{display:flex;align-items:center;gap:13px;margin-top:15px;padding-top:13px;border-top:1px solid var(--line-soft);font-size:12px;color:var(--ink-3)}
+.note-foot .w{font-weight:650;color:var(--ink-2)}
+.mini-note{padding:15px 16px;border-radius:12px;background:var(--sunken)}
+.mini-note + .mini-note{margin-top:11px}
+.mini-note p{margin:9px 0 0;font-size:13px;line-height:1.68}
+.mini-note .mf{font-size:11.5px;color:var(--ink-4);margin-top:10px}
+
+/* ---- Rail (3 dates) ---- */
+.rail-track{position:relative;height:52px;margin:8px 8px 0}
+.rail-line{position:absolute;left:0;right:0;top:24px;height:4px;border-radius:4px;background:var(--line)}
+.rail-fill{position:absolute;top:24px;height:4px;border-radius:4px;background:var(--navy-300)}
+.rnode{position:absolute;top:18px;transform:translateX(-50%)}
+.rnode i{display:block;width:11px;height:11px;border-radius:50%;background:#fff;border:3px solid var(--navy-300)}
+.rnode.due i{border-color:var(--navy-700);background:var(--navy-700)}
+.rnode.now i{border-color:var(--ok);box-shadow:0 0 0 4px rgba(16,185,129,.16)}
+.rnode.prev i{border-color:var(--gam);background:var(--gam)}
+.rcap{position:absolute;transform:translateX(-50%);white-space:nowrap;font-size:11px;font-weight:680;font-variant-numeric:tabular-nums}
+.rcap.up{top:-2px} .rcap.dn{top:38px}
+.legend{display:flex;flex-wrap:wrap;gap:18px;margin-top:20px;padding-top:18px;border-top:1px solid var(--line-soft)}
+.leg{display:flex;gap:9px;min-width:150px}
+.leg .sw{width:9px;height:9px;border-radius:50%;margin-top:6px;flex:0 0 9px}
+.leg .lt{font-size:11px;font-weight:650;color:var(--ink-3)}
+.leg .lv{font-size:14.5px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+
+/* ---- Table ---- */
+.tbl-wrap{overflow-x:auto}
+table.tbl{width:100%;border-collapse:collapse}
+.tbl thead th{position:sticky;top:var(--topbar);background:#fff;text-align:left;font-size:11.5px;font-weight:700;color:var(--ink-3);letter-spacing:.03em;padding:12px 16px;white-space:nowrap;border-bottom:1px solid var(--line);z-index:2}
+.tbl thead th button{display:inline-flex;align-items:center;gap:5px;color:inherit}
+.tbl thead th button:hover{color:var(--navy-700)}
+.tbl thead th[aria-sort] button{color:var(--navy-700)}
+.tbl tbody tr{cursor:pointer;transition:background .13s}
+.tbl tbody tr:hover{background:var(--sunken)}
+.tbl tbody td{padding:17px 16px;border-bottom:1px solid var(--line-soft);font-size:13.5px}
+.tbl tbody tr:last-child td{border-bottom:0}
+.tbl .dt1{font-weight:650;letter-spacing:-.02em}
+.tbl .dt2{font-size:12px;color:var(--ink-4);margin-top:4px;font-variant-numeric:tabular-nums}
+
+/* ---- Filters ---- */
+.filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.fchip{height:34px;padding:0 14px;border-radius:var(--r-pill);border:1px solid var(--line);background:#fff;font-size:12.5px;font-weight:620;color:var(--ink-2);display:inline-flex;align-items:center;gap:7px;transition:.14s}
+.fchip:hover{border-color:var(--navy-300);color:var(--navy-700)}
+.fchip[aria-pressed="true"]{background:var(--navy-700);border-color:var(--navy-700);color:#fff}
+.fchip .c{font-size:11px;opacity:.72;font-variant-numeric:tabular-nums}
+
+/* ---- Year map ---- */
+.map-scroll{overflow-x:auto}
+.map-inner{min-width:1040px}
+.map-months{display:grid;grid-template-columns:230px repeat(12,1fr);padding-bottom:11px;border-bottom:1px solid var(--line)}
+.map-months .mh{font-size:11.5px;font-weight:650;color:var(--ink-3);text-align:center}
+.map-months .mh.now{color:var(--navy-700);font-weight:780}
+.map-row{display:grid;grid-template-columns:230px repeat(12,1fr);align-items:center;min-height:58px}
+.map-row + .map-row{border-top:1px solid var(--line-soft)}
+.map-row:hover{background:var(--sunken)}
+.map-label{padding:10px 16px 10px 4px;font-size:13.5px;font-weight:620;letter-spacing:-.02em;line-height:1.4}
+.map-label .mm{display:block;font-size:11.5px;color:var(--ink-4);font-weight:500;margin-top:3px;font-variant-numeric:tabular-nums}
+.map-bar{grid-row:1;height:32px;border-radius:9px;display:flex;align-items:center;gap:8px;padding:0 11px;background:var(--navy-050);border:1px solid var(--navy-100);color:var(--navy-700);font-size:11.5px;font-weight:650;overflow:hidden;white-space:nowrap;transition:.14s}
+.map-bar:hover{background:var(--navy-100);border-color:var(--navy-300)}
+.map-bar.done{background:#F1F5F9;border-color:var(--line);color:var(--ink-3)}
+.map-bar.live{background:var(--navy-700);border-color:var(--navy-700);color:#fff}
+.map-bar .pm{width:7px;height:7px;border-radius:50%;background:var(--gam);flex:0 0 7px}
+.map-now{position:absolute;top:0;bottom:0;width:2px;background:var(--ok);opacity:.5;pointer-events:none}
+.map-now::after{content:"오늘";position:absolute;top:-24px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:750;color:var(--ok-ink);background:var(--ok-bg);padding:2px 7px;border-radius:5px}
+
+/* ---- Detail ---- */
+.two{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:22px;align-items:start}
+.check{display:flex;gap:13px;padding:14px 4px}
+.check + .check{border-top:1px solid var(--line-soft)}
+.cbox{width:20px;height:20px;flex:0 0 20px;border-radius:6px;border:1.5px solid var(--line);background:#fff;display:flex;align-items:center;justify-content:center;margin-top:2px;transition:.14s}
+.cbox:hover{border-color:var(--navy-500)}
+.check.on .cbox{background:var(--navy-700);border-color:var(--navy-700);color:#fff}
+.check.on .ct{color:var(--ink-4);text-decoration:line-through}
+.check .ct{font-size:14px;font-weight:560}
+.check .cm{font-size:12px;color:var(--ink-4);margin-top:3px}
+
+.chain{position:relative;padding-left:26px}
+.chain::before{content:"";position:absolute;left:9px;top:14px;bottom:14px;width:2px;background:var(--line)}
+.chain-i{position:relative;padding:12px 0}
+.chain-i::before{content:"";position:absolute;left:-22px;top:19px;width:11px;height:11px;border-radius:50%;background:#fff;border:2.5px solid var(--navy-300)}
+.chain-i.src-school::before{border-color:var(--gam)}
+.chain-i .cl{font-size:11px;font-weight:700;color:var(--ink-4);letter-spacing:.06em;text-transform:uppercase}
+.chain-i .cn{font-size:14px;font-weight:640;margin-top:5px;letter-spacing:-.02em}
+.chain-i .cd{font-size:12px;color:var(--ink-3);margin-top:4px;font-variant-numeric:tabular-nums}
+
+.tl{position:relative;padding-left:24px}
+.tl::before{content:"";position:absolute;left:5px;top:8px;bottom:8px;width:2px;background:var(--line)}
+.tl-i{position:relative;padding:9px 0}
+.tl-i::before{content:"";position:absolute;left:-23px;top:15px;width:10px;height:10px;border-radius:50%;background:#fff;border:2.5px solid var(--gam)}
+.tl-i .d{font-size:12px;font-weight:700;color:var(--gam-ink);font-variant-numeric:tabular-nums}
+.tl-i .x{font-size:13.5px;font-weight:550;margin-top:3px}
+
+.frow{display:grid;grid-template-columns:32px 1fr auto;gap:13px;align-items:center;padding:13px 4px}
+.frow + .frow{border-top:1px solid var(--line-soft)}
+.fic{width:32px;height:32px;border-radius:9px;background:var(--sunken);display:flex;align-items:center;justify-content:center;color:var(--ink-3)}
+.frow .fn{font-size:13.5px;font-weight:620}
+.frow .fm{font-size:11.5px;color:var(--ink-4);margin-top:3px}
+
+/* ---- Notice ---- */
+.notice{display:flex;gap:11px;padding:15px 17px;border-radius:12px;font-size:12.5px;line-height:1.65;align-items:flex-start;background:var(--gam-bg);color:#8A3A0D}
+.notice.info{background:var(--navy-050);color:var(--navy-700)}
+.notice.flat{background:var(--sunken);color:var(--ink-2)}
+.notice svg{flex:0 0 16px;margin-top:2px}
+.empty{text-align:center;padding:56px 20px}
+.empty .ei{width:46px;height:46px;border-radius:13px;background:var(--navy-050);color:var(--navy-500);display:flex;align-items:center;justify-content:center;margin:0 auto 15px}
+
+/* ---- Handover ---- */
+.ho-doc{background:#fff;border-radius:var(--r-card);box-shadow:var(--sh-2);padding:44px 52px;max-width:900px}
+.ho-doc h3{font-size:15px;font-weight:700;letter-spacing:-.02em;margin:34px 0 14px;padding-bottom:9px;border-bottom:1px solid var(--line)}
+.ho-doc h3:first-of-type{margin-top:0}
+.ho-line{display:flex;justify-content:space-between;gap:18px;padding:11px 0;font-size:13.5px}
+.ho-line + .ho-line{border-top:1px solid var(--line-soft)}
+.ho-line .k{color:var(--ink-3)}
+.ho-line .v{font-weight:620;font-variant-numeric:tabular-nums;text-align:right}
+
+/* ---- Assistant FAB + panel ---- */
+.fab{
+  position:fixed;right:32px;bottom:30px;z-index:70;height:52px;padding:0 22px;border-radius:var(--r-pill);
+  background:var(--navy-700);color:#fff;font-size:14.5px;font-weight:680;letter-spacing:-.02em;
+  display:flex;align-items:center;gap:10px;box-shadow:0 12px 28px -8px rgba(11,65,113,.5);transition:.16s;
+}
+.fab:hover{background:var(--navy-600);transform:translateY(-2px);box-shadow:0 18px 34px -10px rgba(11,65,113,.55)}
+
+/* ---- Overlays ---- */
+.scrim{position:fixed;inset:0;background:rgba(7,28,51,.44);backdrop-filter:blur(3px);z-index:90;display:flex;align-items:center;justify-content:center;padding:26px}
+.modal{background:#fff;border-radius:20px;box-shadow:var(--sh-pop);width:min(700px,100%);max-height:88vh;display:flex;flex-direction:column;overflow:hidden}
+.modal.wide{width:min(880px,100%)}
+.modal-head{padding:26px 30px 20px;border-bottom:1px solid var(--line-soft)}
+.modal-body{padding:26px 30px;overflow:auto}
+.modal-foot{padding:17px 30px;border-top:1px solid var(--line-soft);display:flex;gap:10px;justify-content:flex-end;background:var(--sunken)}
+.panel{position:fixed;top:0;right:0;bottom:0;width:min(440px,100%);background:#fff;z-index:95;box-shadow:var(--sh-pop);display:flex;flex-direction:column}
+.panel-head{padding:22px 24px 18px;border-bottom:1px solid var(--line-soft)}
+.panel-body{flex:1;overflow:auto}
+.notif{display:flex;gap:13px;padding:17px 24px;width:100%;text-align:left;transition:background .14s}
+.notif:hover{background:var(--sunken)}
+.notif + .notif{border-top:1px solid var(--line-soft)}
+.notif .ni{width:32px;height:32px;flex:0 0 32px;border-radius:9px;display:flex;align-items:center;justify-content:center}
+.notif .nt{font-size:13.5px;font-weight:620;line-height:1.45}
+.notif .nm{font-size:11.5px;color:var(--ink-4);margin-top:5px;font-variant-numeric:tabular-nums}
+.notif.new{background:rgba(11,65,113,.03)}
+
+.opt-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.opt{text-align:left;padding:17px 18px;border-radius:13px;border:1.5px solid var(--line);background:#fff;transition:.15s;position:relative}
+.opt:hover{border-color:var(--navy-300);background:var(--navy-050)}
+.opt[aria-pressed="true"]{border-color:var(--navy-700);background:var(--navy-050);box-shadow:0 0 0 3px rgba(11,65,113,.08)}
+.opt .ot{font-size:14px;font-weight:660}
+.opt .om{font-size:12px;color:var(--ink-3);margin-top:5px}
+.opt .tick{position:absolute;top:14px;right:14px;color:var(--navy-700);opacity:0}
+.opt[aria-pressed="true"] .tick{opacity:1}
+
+.drop{border:1.5px dashed var(--navy-300);border-radius:14px;background:var(--navy-050);padding:38px 24px;text-align:center;transition:.16s}
+.drop.over{background:var(--navy-100);border-color:var(--navy-700)}
+.steps{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:11.5px;font-weight:650;color:var(--ink-4)}
+.steps .s{padding:5px 10px;border-radius:7px;background:var(--sunken)}
+.steps .s.on{background:var(--navy-700);color:#fff}
+.steps .s.ok{background:var(--ok-bg);color:var(--ok-ink)}
+.draft{padding:17px 18px;border-radius:13px;border:1px solid var(--warn);background:var(--warn-bg)}
+.draft + .draft{margin-top:12px}
+.draft .dt{font-size:13.5px;font-weight:660}
+.draft .dm{font-size:12.5px;color:#8A5D0B;margin-top:6px;line-height:1.6}
+
+.sugg{width:100%;text-align:left;padding:14px 16px;border-radius:12px;border:1px solid var(--line);background:#fff;font-size:13.5px;font-weight:600;transition:.14s}
+.sugg + .sugg{margin-top:10px}
+.sugg:hover{border-color:var(--navy-300);background:var(--navy-050);color:var(--navy-700)}
+.sugg .sm{display:block;font-size:11.5px;font-weight:500;color:var(--ink-4);margin-top:5px}
+
+.toasts{position:fixed;bottom:26px;left:50%;transform:translateX(-50%);z-index:120;display:flex;flex-direction:column;gap:9px;align-items:center}
+.toast{background:var(--navy-950);color:#fff;padding:13px 20px;border-radius:12px;font-size:13px;font-weight:600;box-shadow:var(--sh-pop);display:flex;gap:10px;align-items:center;animation:ti .26s cubic-bezier(.2,.9,.3,1)}
+@keyframes ti{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* ============================================================
+   Responsive — 데스크톱 우선, 축소 시 열 접기
+   ============================================================ */
+@media (min-width:1800px){ .view{max-width:1720px} .grid-main{grid-template-columns:minmax(0,1fr) 440px} }
+@media (max-width:1400px){ .grid-main,.two{grid-template-columns:minmax(0,1fr) 350px} }
+@media (max-width:1180px){
+  .kpis{grid-template-columns:repeat(2,1fr)}
+  .grid-main,.two{grid-template-columns:1fr}
+  .col-side{position:static}
+}
+@media (max-width:1024px){
+  .side{transform:translateX(-100%);transition:transform .22s cubic-bezier(.3,.8,.3,1)}
+  body.nav-on .side{transform:none}
+  body.nav-on .side-scrim{display:block;position:fixed;inset:0;background:rgba(7,28,51,.4);z-index:55}
+  .main{margin-left:0}
+  .hamb{display:flex}
+}
+.side-scrim{display:none}
+@media (max-width:760px){
+  .view{padding:22px 16px 96px}
+  .topbar{padding:0 14px} .date-now{display:none}
+  .card-pad{padding:20px 18px} .divider{margin:18px -18px}
+  .kpis{grid-template-columns:1fr 1fr;gap:12px}
+  .kpi{padding:18px 16px 16px 20px} .kpi .kn b{font-size:30px}
+  .t-display{font-size:23px}
+  .trow{grid-template-columns:52px minmax(0,1fr);gap:14px} .trow .prog,.trow .go{display:none}
+  .who .n,.who .r{display:none}
+  .tbl-wrap{display:none} .mlist{display:flex !important;flex-direction:column}
+  .ho-doc{padding:26px 20px}
+  .fab{right:16px;bottom:18px}
+}
+.mlist{display:none}
+.mlist .mi{padding:16px 4px;text-align:left;width:100%}
+.mlist .mi + .mi{border-top:1px solid var(--line-soft)}
+.mlist .mi .mt{font-size:13.5px;font-weight:650}
+.mlist .mi .mm{font-size:12px;color:var(--ink-3);margin-top:6px;display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center}
+
+@media (prefers-reduced-motion:reduce){*{animation-duration:.001ms !important;transition-duration:.001ms !important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="side-scrim" data-navclose></div>
+
+  <aside class="side">
+    <div class="brand">
+      <svg width="36" height="36" viewBox="0 0 100 100" aria-hidden="true">
+        <path d="M50 33c22 0 36 12 36 26.5S72 88 50 88 14 74 14 59.5 28 33 50 33z" fill="#F4581C"/>
+        <path d="M50 12c5 0 8.2 6 8.2 13 7-5 15.2-8 18.2-4 3 4-2 11-9 15 8 1 15 5 14 9-1 5-10 6-18 4 3 7 3 14-1 15-4 1-9-5-12.4-12-3.4 7-8.4 13-12.4 12-4-1-4-8-1-15-8 2-17 1-18-4-1-4 6-8 14-9-7-4-12-11-9-15 3-4 11.2-1 18.2 4C41.8 18 45 12 50 12z" fill="#0F2647"/>
+      </svg>
+      <span class="wm"><span class="wm1">GAM</span><span class="wm2">GET A MAP</span></span>
+    </div>
+
+    <div class="ctx">
+      <span class="lab">담당 업무</span>
+      <span class="row">
+        <span class="nm" id="ctxName">과학정보부장</span>
+        <button class="chg" data-open="assign">변경</button>
+      </span>
+      <span class="mt" id="ctxMeta">한빛중학교 · 2026학년도 · 업무 3개</span>
+    </div>
+
+    <nav class="nav" aria-label="주요 메뉴">
+      <button class="nav-item" data-route="home" aria-current="page">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5L12 3l9 7.5"/><path d="M5.5 9.5V21h13V9.5"/></svg>
+        내 업무 홈 <span class="nav-badge">2</span>
+      </button>
+      <button class="nav-item" data-route="map">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4L3 6.5v14L9 18l6 2.5 6-2.5v-14L15 6.5 9 4z"/><path d="M9 4v14M15 6.5v14"/></svg>
+        연간 업무 지도
+      </button>
+      <button class="nav-item" data-route="docs">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8l-5-5z"/><path d="M14 3v5h5"/></svg>
+        문서함
+      </button>
+      <button class="nav-item" data-route="notes">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 01-11.5 7.2L4 21l1.8-5.4A8 8 0 1121 12z"/></svg>
+        선생님들의 감 <span class="nav-badge">2</span>
+      </button>
+      <span class="nav-sep"></span>
+      <button class="nav-item" data-route="handover">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6v3H9z"/><path d="M15 5.5h2.5A1.5 1.5 0 0119 7v12.5a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 015 19.5V7a1.5 1.5 0 011.5-1.5H9"/><path d="M9 12h6M9 16h4"/></svg>
+        인수인계서
+      </button>
+    </nav>
+
+    <div class="side-foot">
+      <p>기록은 이 학교의 조직기억으로 남습니다.</p>
+      <p style="margin-top:6px"><span class="em num">전임자 문서 412건</span> 분석 완료</p>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="hamb" id="hamb" aria-label="메뉴 열기">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+      <span class="date-now num">2026. 08. 28. 금 <span>· 2학기 3주차</span></span>
+
+      <div class="search-wrap">
+        <div class="search">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#A9B4C4" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+          <input id="q" type="search" placeholder="업무명, 공문 키워드로 검색" aria-label="통합 검색" autocomplete="off"/>
+          <kbd>/</kbd>
+        </div>
+        <div class="results" id="results" hidden></div>
+      </div>
+
+      <div class="top-right">
+        <button class="btn btn-quiet btn-sm" data-open="upload">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+          문서 올리기
+        </button>
+        <button class="icon-btn" id="bell" aria-label="알림">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 10-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>
+          <span class="dot"></span>
+        </button>
+        <button class="who">
+          <span class="ava">박</span>
+          <span><span class="n">박새연</span><span class="r">교사 · 과학정보부</span></span>
+        </button>
+      </div>
+    </header>
+
+    <main class="view" id="view" tabindex="-1"></main>
+  </div>
+</div>
+
+<button class="fab" id="fab">
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.5 8.5 0 01-12.2 7.7L3.5 21l1.9-5A8.5 8.5 0 1121 11.5z"/></svg>
+  업무 도우미
+</button>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<div id="ov"></div>
+
+<script>
+/* ============================================================
+   시연 데이터 (MOCK) · 실제 서버 응답 아님
+   ============================================================ */
+const TODAY = new Date(2026,7,28);
+
+const I = {
+  chev:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>',
+  down:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M6 13l6 6 6-6"/></svg>',
+  right:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+  link:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.5.5l3-3a5 5 0 00-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 00-7.5-.5l-3 3a5 5 0 007 7L12.2 19"/></svg>',
+  check:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5.5 5.5L20 7"/></svg>',
+  info:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>',
+  file:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8l-5-5z"/><path d="M14 3v5h5"/></svg>',
+  x:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  sort:'<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 9l4-4 4 4M8 15l4 4 4-4"/></svg>',
+  seal:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.5 2 3.4-.4 1 3.3 2.9 1.8-1.6 3 .5 3.4-3.3 1-2 2.8-3.4-.8-3.4.8-2-2.8-3.3-1 .5-3.4L2.2 8.7l2.9-1.8 1-3.3L9.5 4 12 2z"/></svg>',
+  bank:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V9l7-5 7 5v12"/><path d="M10 21v-6h4v6"/></svg>',
+  pen:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.5 4.5l4 4L8 20H4v-4L15.5 4.5z"/></svg>'
+};
+const SRC={official:{l:'공식 근거',c:'official',i:I.seal},school:{l:'학교사례',c:'school',i:I.bank},exp:{l:'경험 메모',c:'exp',i:I.pen}};
+const srcTag=k=>`<span class="src ${SRC[k].c}">${SRC[k].i}${SRC[k].l}</span>`;
+
+const ASSIGN=[
+  {id:'sci',name:'과학정보부장',meta:'2026.03.01~ · 서버 허용',n:12},
+  {id:'gift',name:'영재교육',meta:'2026.03.01~ · 서버 허용',n:9},
+  {id:'sp',name:'특수학급 설치 TF',meta:'2026.06.10~ · 전례 없는 신규 업무',n:4}
+];
+
+const TASKS=[
+  {id:'t1',t:'2학기 학교정보공시 자료 확정',cat:'과학정보',prep:'2026-08-18',due:'2026-08-31',prev:'2025-08-26',
+   done:2,total:6,st:'진행중',m0:5,m1:5,
+   why:'공시 자료는 정정 절차가 복잡해 마감 전 검증 기간이 필요합니다. 전년도 담당자는 8월 26일에 최종 확정했습니다.'},
+  {id:'t2',t:'2026 AI 교육주간 운영',cat:'과학정보',prep:'2026-08-24',due:'2026-09-02',prev:'2025-08-24',
+   done:3,total:7,st:'진행중',m0:5,m1:6,
+   why:'교육지원청 제출 기한이 9월 2일이고, 내부결재와 교직원 안내에 평균 5일이 걸립니다.'},
+  {id:'t3',t:'디지털기기 관리 실태 점검',cat:'과학정보',prep:'2026-09-01',due:'2026-09-18',prev:'2025-09-12',
+   done:0,total:5,st:'준비',m0:6,m1:6,why:'전수 점검이라 학년별 협조 요청이 선행됩니다.'},
+  {id:'t4',t:'영재학급 2학기 강사비 정산',cat:'영재교육',prep:'2026-09-07',due:'2026-09-25',prev:'2025-09-19',
+   done:0,total:6,st:'준비',m0:6,m1:6,why:'강사 개인별 서류가 필요하며 행정실 마감일이 별도로 있습니다.'},
+  {id:'t5',t:'과학실 안전점검 결과보고',cat:'안전',prep:'2026-09-10',due:'2026-09-30',prev:'2025-09-26',
+   done:0,total:5,st:'준비',m0:6,m1:6,why:'행정실 물품 대장 확인이 선행되어야 수량이 맞습니다.'},
+  {id:'t6',t:'과학중점 중간 운영보고',cat:'과학정보',prep:'2026-10-05',due:'2026-10-30',prev:'2025-10-24',
+   done:0,total:6,st:'예정',m0:7,m1:7,why:'예산 집행률을 함께 보고해야 합니다.'},
+  {id:'t7',t:'차년도 과학실 물품 수요 취합',cat:'과학정보',prep:'2026-11-10',due:'2026-12-05',prev:'2025-12-02',
+   done:0,total:4,st:'예정',m0:8,m1:9,why:'예산 편성 일정과 맞물려 있습니다.'},
+  {id:'t8',t:'학년말 정보기기 회수·점검',cat:'과학정보',prep:'2027-01-05',due:'2027-01-30',prev:'2026-01-28',
+   done:0,total:5,st:'예정',m0:10,m1:10,why:'회수 지연 시 다음 학년도 배부가 밀립니다.'},
+  {id:'t9',t:'학교 교육계획 과학정보 영역 작성',cat:'과학정보',prep:'2026-03-02',due:'2026-03-20',prev:'2025-03-18',
+   done:5,total:5,st:'완료',m0:0,m1:0,why:''},
+  {id:'t10',t:'과학의 달 행사 운영',cat:'과학정보',prep:'2026-03-25',due:'2026-04-30',prev:'2025-04-28',
+   done:6,total:6,st:'완료',m0:0,m1:1,why:''},
+  {id:'t11',t:'영재학급 선발·배정',cat:'영재교육',prep:'2026-04-01',due:'2026-05-15',prev:'2025-05-12',
+   done:7,total:7,st:'완료',m0:1,m1:2,why:''},
+  {id:'t12',t:'1학기 디지털기기 운영 결과보고',cat:'과학정보',prep:'2026-06-20',due:'2026-07-15',prev:'2025-07-11',
+   done:5,total:5,st:'완료',m0:3,m1:4,why:''}
+];
+
+const FEED=[
+  {t:'AI 교육주간 운영 협조 요청',f:'한빛교육지원청',d:'08.19',hint:'운영계획 수립 후 9월 2일까지 제출',task:'t2'},
+  {t:'2학기 정보공시 입력 안내',f:'교육부',d:'08.14',hint:'8월 31일까지 입력 마감',task:'t1'},
+  {t:'디지털기기 관리 실태 점검 안내',f:'경기도교육청',d:'08.22',hint:'9월 중 전수 점검 실시',task:'t3'}
+];
+
+const DOCS=[
+  {id:'d1',t:'2026 디지털 기반 교육혁신 운영지침',no:'경기도교육청 제2026-1183호',s:'official',task:'과학정보 · 공통',date:'2026-03-04',an:'분석 완료',v:'검증됨'},
+  {id:'d2',t:'AI 교육주간 운영 협조 요청',no:'한빛교육지원청 제2026-9241호',s:'official',task:'2026 AI 교육주간 운영',date:'2026-08-19',an:'분석 완료',v:'검토 필요'},
+  {id:'d3',t:'2025 AI 교육주간 운영계획(내부결재)',no:'한빛중 제2025-4417호',s:'school',task:'2026 AI 교육주간 운영',date:'2025-08-24',an:'분석 완료',v:'검증됨'},
+  {id:'d4',t:'2025 AI 교육주간 운영 결과보고',no:'한빛중 제2025-4802호',s:'school',task:'2026 AI 교육주간 운영',date:'2025-09-30',an:'분석 완료',v:'검증됨'},
+  {id:'d5',t:'2학기 정보공시 입력 안내',no:'교육부 제2026-3308호',s:'official',task:'2학기 학교정보공시 자료 확정',date:'2026-08-14',an:'분석 완료',v:'검증됨'},
+  {id:'d6',t:'2025 2학기 정보공시 확정자료',no:'한빛중 제2025-4390호',s:'school',task:'2학기 학교정보공시 자료 확정',date:'2025-08-26',an:'분석 완료',v:'검증됨'},
+  {id:'d7',t:'디지털기기 관리 실태 점검 안내',no:'경기도교육청 제2026-7710호',s:'official',task:'디지털기기 관리 실태 점검',date:'2026-08-22',an:'분석 대기',v:'—'},
+  {id:'d8',t:'영재교육 강사비 지급 기준 안내',no:'경기도교육청 제2026-2205호',s:'official',task:'영재학급 강사비 정산',date:'2026-04-08',an:'부분 분석',v:'검토 필요'}
+];
+
+/* 경험지식 공개 수준 3단계 (명세 §21) */
+const LV={priv:{l:'나만 보기',c:''},hand:{l:'후임자 전달',c:'warn'},org:{l:'학교 조직지식',c:'ok'}};
+const NOTES=[
+  {id:'n1',task:'2026 AI 교육주간 운영',y:2025,w:'김O민 (전임)',lv:'hand',
+   b:'강사 섭외는 8월 첫째 주에 시작해야 일정이 맞습니다. 8월 중순이 넘으면 외부 강사 일정이 대부분 차서 교내 인력으로 대체해야 했습니다.'},
+  {id:'n2',task:'영재학급 선발·배정',y:2025,w:'김O민 (전임)',lv:'org',
+   b:'우리 학교에서 학부모 문의가 가장 많은 업무입니다. 선발 기준과 배점을 가정통신문에 숫자로 명시하면 문의가 눈에 띄게 줄었습니다.'},
+  {id:'n3',task:'2학기 학교정보공시 자료 확정',y:2025,w:'김O민 (전임)',lv:'hand',
+   b:'입력 마감 이틀 전에는 교무부 학적 자료와 숫자가 맞는지 대조하세요. 작년에 학급 수가 어긋나 정정 절차를 밟았습니다.'},
+  {id:'n4',task:'과학실 안전점검 결과보고',y:2026,w:'박새연 (나)',lv:'priv',
+   b:'행정실 물품 담당 선생님과 점검 날짜를 먼저 맞출 것. 물품 대장 확인 없이 점검표만 작성하면 결과보고에서 수량이 안 맞음.'},
+  {id:'n5',task:'2026 AI 교육주간 운영',y:2026,w:'박새연 (나)',lv:'priv',
+   b:'운영계획 기안 전 교감 선생님과 일정 협의 먼저. 학교 행사와 겹치면 반려됨.'}
+];
+
+const NOTIF=[
+  {t:'2학기 학교정보공시 자료 확정 · 공식 마감 3일 전',m:'2026.08.28 09:00 · 공식 마감',k:'due',new:true,task:'t1'},
+  {t:'2026 AI 교육주간 운영 · 권장 준비 시작일이 지났습니다',m:'2026.08.27 08:30 · 준비 시작',k:'prep',new:true,task:'t2'},
+  {t:'새 관련 공문 · 디지털기기 관리 실태 점검 안내',m:'2026.08.22 14:12 · 새 공문',k:'doc',new:false,task:'t3'},
+  {t:'근거 갱신 · 2026 디지털 기반 교육혁신 운영지침 3차 개정',m:'2026.08.14 11:05 · 근거 갱신',k:'upd',new:false,task:null},
+  {t:'분석 완료 · 전임자 문서 412건 중 408건 성공, 4건 검토 필요',m:'2026.08.11 16:40 · 분석 완료',k:'ok',new:false,task:null}
+];
+
+const CHECK={
+  t1:[{t:'교무부 학적 자료 대조',m:'전년도 정정 사유',on:true},
+      {t:'공시 항목별 담당 부서 확인',m:'6개 항목',on:true},
+      {t:'과학·정보 영역 수치 확정',m:'',on:false},
+      {t:'교감 검토',m:'',on:false},
+      {t:'나이스 입력',m:'마감 08.31',on:false},
+      {t:'입력 결과 출력·보관',m:'',on:false}],
+  t2:[{t:'2026 지침 확인',m:'경기도교육청 제2026-1183호',on:true},
+      {t:'전년도 학교 운영계획 확인',m:'한빛중 제2025-4417호',on:true},
+      {t:'운영 일정·차시 검토',m:'교육과정부 협의',on:true},
+      {t:'강사·예산 확인',m:'행정실 사전 협의',on:false},
+      {t:'내부결재 기안',m:'전년도 기안일 08.24',on:false},
+      {t:'교직원·가정 안내',m:'전년도 08.28 발송',on:false},
+      {t:'교육지원청 제출',m:'공식 마감 09.02',on:false}]
+};
+
+const CHAIN={
+  t2:[{lv:'현재 공문',t:'AI 교육주간 운영 협조 요청',d:'한빛교육지원청 제2026-9241호 · 2026.08.19',s:'official'},
+      {lv:'관련 매뉴얼',t:'2026 디지털 기반 교육혁신 운영지침',d:'경기도교육청 제2026-1183호 · 2026.03.04',s:'official'},
+      {lv:'법적 근거',t:'교육기본법 제23조의2 (정보화 교육)',d:'시행 2025.09.15',s:'official'},
+      {lv:'우리학교 전년도 사례',t:'2025 AI 교육주간 운영계획(내부결재)',d:'한빛중 제2025-4417호 · 2025.08.24',s:'school'}],
+  t1:[{lv:'현재 공문',t:'2학기 정보공시 입력 안내',d:'교육부 제2026-3308호 · 2026.08.14',s:'official'},
+      {lv:'관련 매뉴얼',t:'학교알리미 공시항목 입력 매뉴얼',d:'2026학년도 2차 개정',s:'official'},
+      {lv:'우리학교 전년도 사례',t:'2025 2학기 정보공시 확정자료',d:'한빛중 제2025-4390호 · 2025.08.26',s:'school'}]
+};
+
+const PREVTL={
+  t2:[{d:'2025.08.21',x:'교육지원청 공문 접수'},{d:'2025.08.24',x:'운영계획 내부결재 기안'},
+      {d:'2025.08.28',x:'교직원 안내 및 가정통신문 발송'},{d:'2025.09.02',x:'교육지원청 제출 (마감 당일)'},
+      {d:'2025.09.30',x:'운영 결과보고 제출'}],
+  t1:[{d:'2025.08.14',x:'교육부 입력 안내 접수'},{d:'2025.08.20',x:'부서별 자료 취합 요청'},
+      {d:'2025.08.26',x:'최종 확정 및 나이스 입력'},{d:'2025.08.29',x:'입력 결과 출력·보관'}]
+};
+
+const MONTHS=['3월','4월','5월','6월','7월','8월','9월','10월','11월','12월','1월','2월'];
+
+/* ---------------- utils ---------------- */
+const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const D=s=>{const[y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d)};
+const fmt=s=>{const d=D(s);return `${d.getMonth()+1}.${String(d.getDate()).padStart(2,'0')}`};
+const fmtY=s=>{const d=D(s);return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`};
+const days=(a,b)=>Math.round((b-a)/864e5);
+const dd=s=>days(TODAY,D(s));
+const T=id=>TASKS.find(x=>x.id===id);
+function toast(m){const e=document.createElement('div');e.className='toast';
+  e.innerHTML=`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#5EE3B4" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5.5 5.5L20 7"/></svg>${esc(m)}`;
+  $('#toasts').appendChild(e);setTimeout(()=>e.remove(),2600);}
+
+const state={route:'home',assign:'sci',task:'t2',docF:'all',sort:{k:'date',d:'desc'},noteF:'all',
+  checks:JSON.parse(JSON.stringify(CHECK))};
+
+/* 시그니처: 3-날짜 레일 */
+function rail(t){
+  const prep=D(t.prep),due=D(t.due),prev=D(t.prev);
+  const pv=new Date(prev.getFullYear()+1,prev.getMonth(),prev.getDate());
+  const lo=new Date(Math.min(prep,pv,TODAY)-7*864e5), hi=new Date(Math.max(due,TODAY)+7*864e5);
+  const sp=days(lo,hi)||1, p=d=>Math.max(3,Math.min(97,days(lo,d)/sp*100));
+  const a=p(prep),b=p(due),n=p(TODAY),v=p(pv);
+  return `<div class="rail-track">
+    <span class="rail-line"></span><span class="rail-fill" style="left:${a}%;width:${Math.max(0,n-a)}%"></span>
+    <span class="rcap up" style="left:${a}%;color:var(--navy-500)">준비 ${fmt(t.prep)}</span>
+    <span class="rnode" style="left:${a}%"><i></i></span>
+    <span class="rnode prev" style="left:${v}%"><i></i></span>
+    <span class="rcap dn" style="left:${v}%;color:var(--gam-ink)">작년 ${fmt(t.prev)}</span>
+    <span class="rnode now" style="left:${n}%"><i></i></span>
+    <span class="rcap up" style="left:${n}%;color:var(--ok-ink)">오늘</span>
+    <span class="rnode due" style="left:${b}%"><i></i></span>
+    <span class="rcap dn" style="left:${b}%;color:var(--navy-700)">마감 ${fmt(t.due)}</span>
+  </div>`;
+}
+
+function taskRow(t){
+  const n=dd(t.due), cls=n<=5?'d0':(n<=14?'d1':'d2');
+  const pct=Math.round(t.done/t.total*100);
+  return `<button class="trow" data-task="${t.id}">
+    <span class="dd ${cls} num">${n<0?'지남':'D-'+n}</span>
+    <span>
+      <span class="tt">${esc(t.t)}</span>
+      <span class="tm">
+        <span class="chip">${esc(t.cat)}</span>
+        <span><span class="k">공식 마감</span> <span class="v">${fmt(t.due)}</span></span>
+        <span class="prev"><span class="k">작년 처리</span> <span class="v">${fmt(t.prev)}</span></span>
+      </span>
+    </span>
+    <span class="prog"><span class="bar"><i style="width:${pct}%"></i></span><span class="pn">${t.done}/${t.total}</span></span>
+    <span class="go">${I.chev}</span>
+  </button>`;
+}
+
+/* ============================================================
+   VIEW · 내 업무 홈
+   ============================================================ */
+function vHome(){
+  const now=TASKS.filter(t=>t.st==='진행중');
+  const soon=TASKS.filter(t=>t.st==='준비');
+  const doneN=TASKS.filter(t=>t.st==='완료').length;
+  const a=ASSIGN.find(x=>x.id===state.assign);
+
+  const kpi=(acc,t,n,m,link,route)=>`<button class="kpi" style="--acc:${acc}" data-route="${route}">
+      <span class="kt">${t}</span><span class="kn"><b class="num">${n}</b><i>건</i></span>
+      <span class="km">${m}</span><span class="kl">${link}</span></button>`;
+
+  return `<div class="stack">
+    <div class="page-head">
+      <div>
+        <h1 class="t-display">내 업무</h1>
+        <p class="sub">담당 업무 <b>${a.n}개</b> · 10일 내 마감 <b>${TASKS.filter(t=>dd(t.due)>=0&&dd(t.due)<=10).length}개</b></p>
+      </div>
+      <div style="display:flex;gap:9px">
+        <button class="btn btn-quiet" data-route="map">연간 지도 열기</button>
+        <button class="btn btn-primary" data-open="upload">문서 업로드·분석</button>
+      </div>
+    </div>
+
+    <div class="kpis">
+      ${kpi('#EF4444','지금 해야 할 업무',now.length,`가장 급한 업무 D-${dd(now[0].due)}`,`목록 보기 ${I.down}`,'home')}
+      ${kpi('#F59E0B','준비 시작할 업무',soon.length,'전년도 준비 시점 기준',`목록 보기 ${I.down}`,'home')}
+      ${kpi('#0B4171','새로 온 관련 공문',FEED.length,'업무에 자동 연결됨',`목록 보기 ${I.down}`,'docs')}
+      ${kpi('#10B981','올해 완료한 업무',doneN,'자동으로 기록됨',`인수인계서 보기 ${I.right}`,'handover')}
+    </div>
+
+    <div class="grid-main">
+      <div class="stack" style="gap:22px">
+
+        <section class="card card-pad">
+          <span class="sec-tag">이번 달 · 8월</span>
+          <div class="card-head">
+            <span class="lead"><span class="dot-m" style="background:var(--danger)"></span><h2 class="t-h1">지금 해야 할 업무</h2></span>
+            <button class="btn btn-ghost btn-sm" data-route="map">지도에서 보기 ${I.right}</button>
+          </div>
+          <div>${now.map(taskRow).join('')}</div>
+        </section>
+
+        <section class="card card-pad">
+          <span class="sec-tag">다음 · 9~10월</span>
+          <div class="card-head">
+            <span class="lead"><span class="dot-m" style="background:var(--warn)"></span><h2 class="t-h1">준비 시작할 업무</h2></span>
+            <span class="t-cap">전년도 담당자의 실제 처리 시점 기준</span>
+          </div>
+          <div>${soon.map(taskRow).join('')}</div>
+        </section>
+
+        <section class="card card-pad">
+          <div class="card-head">
+            <span class="lead"><h2 class="t-h1">가장 급한 업무의 세 날짜</h2>
+              <span class="chip danger">D-${dd(T('t1').due)}</span></span>
+            <button class="btn btn-ghost btn-sm" data-task="t1">업무 상세 ${I.right}</button>
+          </div>
+          <p class="t-cap" style="margin:-8px 0 6px">${esc(T('t1').t)} · ${esc(T('t1').why)}</p>
+          ${rail(T('t1'))}
+          <div class="legend">
+            <span class="leg"><span class="sw" style="background:var(--navy-300)"></span><span><span class="lt">권장 준비 시작일</span><br><span class="lv num">${fmtY(T('t1').prep)}</span></span></span>
+            <span class="leg"><span class="sw" style="background:var(--gam)"></span><span><span class="lt">전년도 실제 처리일</span><br><span class="lv num">${fmtY(T('t1').prev)}</span></span></span>
+            <span class="leg"><span class="sw" style="background:var(--navy-700)"></span><span><span class="lt">공식 마감일</span><br><span class="lv num">${fmtY(T('t1').due)}</span></span></span>
+          </div>
+        </section>
+      </div>
+
+      <aside class="col-side">
+        <section class="card card-pad">
+          <div class="card-head">
+            <span class="lead"><span class="dot-m" style="background:var(--navy-700)"></span><h2 class="t-h2">새로 온 관련 공문</h2></span>
+            <span class="chip navy">자동 분류</span>
+          </div>
+          ${FEED.map(f=>`<button class="dfeed" data-task="${f.task}">
+            <span class="stamp">접수</span>
+            <span style="min-width:0">
+              <span class="dt">${esc(f.t)}</span>
+              <span class="dm">${esc(f.f)} · ${f.d} 접수</span>
+              <span class="dl">${I.link}${esc(f.hint)}</span>
+            </span></button>`).join('')}
+        </section>
+
+        <section class="card card-pad">
+          <div class="card-head">
+            <span class="lead"><h2 class="t-h2">선생님들의 감</h2></span>
+            <button class="btn btn-ghost btn-sm" data-route="notes">전체 ${I.right}</button>
+          </div>
+          ${NOTES.filter(n=>n.lv!=='priv').slice(0,2).map(n=>`
+            <div class="mini-note">
+              <span style="display:flex;gap:7px;flex-wrap:wrap">${srcTag('exp')}<span class="chip ${LV[n.lv].c}">${LV[n.lv].l}</span></span>
+              <p>${esc(n.b)}</p>
+              <span class="mf">${esc(n.w)} · ${n.y}학년도 · ${esc(n.task)}</span>
+            </div>`).join('')}
+          <button class="btn btn-quiet btn-sm" style="width:100%;margin-top:14px" data-open="note">경험 메모 쓰기</button>
+        </section>
+
+        <section class="card card-pad">
+          <div class="card-head"><span class="lead"><h2 class="t-h2">올해 기록 현황</h2></span></div>
+          <div class="ho-line"><span class="k">완료 업무</span><span class="v num">${doneN}건</span></div>
+          <div class="ho-line"><span class="k">체크리스트 기록</span><span class="v num">28개</span></div>
+          <div class="ho-line"><span class="k">경험 메모</span><span class="v num">${NOTES.filter(n=>n.w.includes('나')).length}건 (비공개 포함)</span></div>
+          <div class="ho-line"><span class="k">연결된 문서</span><span class="v num">${DOCS.length}건</span></div>
+          <div class="notice flat" style="margin-top:16px">${I.info}
+            <span>기록은 인수인계서 초안으로 자동 축적됩니다. <strong>전달 여부는 연말 검토에서 직접 선택</strong>합니다.</span></div>
+          <button class="btn btn-quiet btn-sm" style="width:100%;margin-top:14px" data-route="handover">인수인계서 초안 보기</button>
+        </section>
+      </aside>
+    </div>
+  </div>`;
+}
+
+/* ============================================================
+   VIEW · 연간 업무 지도
+   ============================================================ */
+function vMap(){
+  const nowI=5;
+  const rows=TASKS.map(t=>{
+    const s=t.m0+2,e=t.m1+3;
+    const cls=t.st==='완료'?'done':(t.st==='진행중'?'live':'');
+    return `<div class="map-row">
+      <span class="map-label">${esc(t.t)}<span class="mm">준비 ${fmt(t.prep)} · 마감 ${fmt(t.due)} · 작년 ${fmt(t.prev)}</span></span>
+      <button class="map-bar ${cls}" style="grid-column:${s} / ${e}" data-task="${t.id}">
+        <span class="pm"></span><span style="overflow:hidden;text-overflow:ellipsis">${esc(t.t)}</span>
+      </button></div>`;
+  }).join('');
+  return `<div class="stack">
+    <div class="page-head">
+      <div><span class="eyebrow">과학정보부장 · 2026학년도</span>
+        <h1 class="t-display" style="margin-top:9px">연간 업무 지도</h1>
+        <p class="sub">3월부터 다음 해 2월까지의 흐름입니다. 막대 안 주황 점은 <b>전년도 담당자가 실제로 처리한 시점</b>입니다.</p></div>
+    </div>
+    <div class="filters">
+      ${['전체 12','진행중 2','준비 3','예정 3','완료 4'].map((l,i)=>`<button class="fchip" aria-pressed="${i===0}">${l.split(' ')[0]} <span class="c num">${l.split(' ')[1]}</span></button>`).join('')}
+      <span style="width:1px;height:22px;background:var(--line);margin:0 4px"></span>
+      ${['과학정보','영재교육','안전'].map(c=>`<button class="fchip" aria-pressed="false">${c}</button>`).join('')}
+    </div>
+    <section class="card card-pad">
+      <div class="map-scroll"><div class="map-inner">
+        <div class="map-months"><span></span>${MONTHS.map((m,i)=>`<span class="mh ${i===nowI?'now':''}">${m}</span>`).join('')}</div>
+        <div style="position:relative;padding-top:26px">
+          <span class="map-now" style="left:calc(230px + (100% - 230px) * ${(nowI+0.9)/12})"></span>
+          ${rows}
+        </div>
+      </div></div>
+      <div class="legend">
+        <span class="leg"><span class="sw" style="background:var(--navy-700)"></span><span><span class="lt">진행 중</span><br><span class="lv">2건</span></span></span>
+        <span class="leg"><span class="sw" style="background:var(--navy-100)"></span><span><span class="lt">준비·예정</span><br><span class="lv">6건</span></span></span>
+        <span class="leg"><span class="sw" style="background:#E2E8F0"></span><span><span class="lt">완료</span><br><span class="lv">4건</span></span></span>
+        <span class="leg"><span class="sw" style="background:var(--gam)"></span><span><span class="lt">전년도 실제 처리</span><br><span class="lv">막대 내 주황 점</span></span></span>
+      </div>
+    </section>
+  </div>`;
+}
+
+/* ============================================================
+   VIEW · 문서함
+   ============================================================ */
+function vDocs(){
+  const f=state.docF;
+  let list=DOCS.filter(d=>f==='all'?1:(f==='pending'?d.an!=='분석 완료':d.s===f));
+  const{k,d:dir}=state.sort;
+  list=[...list].sort((a,b)=>{const v=String(a[k]).localeCompare(String(b[k]),'ko');return dir==='asc'?v:-v});
+  const th=(key,l)=>`<th ${k===key?`aria-sort="${dir==='asc'?'ascending':'descending'}"`:''}><button data-sort="${key}">${l}${I.sort}</button></th>`;
+  return `<div class="stack">
+    <div class="page-head">
+      <div><span class="eyebrow">권한이 있는 문서만 표시</span>
+        <h1 class="t-display" style="margin-top:9px">문서함</h1>
+        <p class="sub"><b>${DOCS.length}건</b> · 2026.08.28 09:00 기준</p></div>
+      <button class="btn btn-primary" data-open="upload">문서 업로드·분석</button>
+    </div>
+    <div class="filters">
+      ${[['all','전체',DOCS.length],['official','공식 근거',DOCS.filter(d=>d.s==='official').length],
+         ['school','학교사례',DOCS.filter(d=>d.s==='school').length],
+         ['pending','분석 미완료',DOCS.filter(d=>d.an!=='분석 완료').length]]
+       .map(([key,l,c])=>`<button class="fchip" data-docf="${key}" aria-pressed="${f===key}">${l} <span class="c num">${c}</span></button>`).join('')}
+    </div>
+    <section class="card"><div class="card-pad" style="padding-top:8px;padding-bottom:8px">
+      <div class="tbl-wrap"><table class="tbl">
+        <thead><tr>${th('t','문서명')}${th('task','관련 업무')}${th('date','시행일')}<th>출처 유형</th><th>분석 상태</th><th>검증</th></tr></thead>
+        <tbody>${list.map(d=>`<tr data-route="docs">
+          <td style="min-width:300px"><div class="dt1">${esc(d.t)}</div><div class="dt2">${esc(d.no)}</div></td>
+          <td style="color:var(--ink-2)">${esc(d.task)}</td>
+          <td class="num" style="color:var(--ink-2)">${d.date.replace(/-/g,'.')}</td>
+          <td>${srcTag(d.s)}</td>
+          <td><span class="chip ${d.an==='분석 완료'?'ok':(d.an==='부분 분석'?'warn':'')}">${d.an}</span></td>
+          <td><span class="t-cap">${d.v}</span></td></tr>`).join('')}</tbody>
+      </table></div>
+      <div class="mlist">${list.map(d=>`<button class="mi"><span class="mt">${esc(d.t)}</span>
+        <span class="mm">${srcTag(d.s)}<span class="num">${d.date.replace(/-/g,'.')}</span><span>${d.an}</span></span></button>`).join('')}</div>
+      ${list.length?'':`<div class="empty"><span class="ei">${I.file}</span><p class="t-h2">조건에 맞는 문서가 없습니다</p>
+        <p class="t-cap" style="margin-top:6px">필터를 지우거나 문서를 올려 분석을 시작하세요.</p></div>`}
+    </div></section>
+  </div>`;
+}
+
+/* ============================================================
+   VIEW · 선생님들의 감
+   ============================================================ */
+function vNotes(){
+  const f=state.noteF;
+  const list=NOTES.filter(n=>f==='all'?1:(f==='mine'?n.w.includes('나'):n.lv!=='priv'));
+  return `<div class="stack">
+    <div class="page-head">
+      <div><span class="eyebrow">업무별 경험 메모</span>
+        <h1 class="t-display" style="margin-top:9px">선생님들의 감</h1>
+        <p class="sub">공식 근거도, 학교사례도 아닌 담당자의 경험 기록입니다. 공식 지침보다 우선하지 않습니다.</p></div>
+      <div style="display:flex;gap:9px">
+        <button class="btn btn-quiet" data-open="review">인수인계 전 검토</button>
+        <button class="btn btn-primary" data-open="note">경험 메모 쓰기</button>
+      </div>
+    </div>
+
+    <div class="notice">${I.info}
+      <span><strong>기록 ≠ 공유.</strong> 메모는 <em>나만 보기 → 후임자 전달 → 학교 조직지식</em> 순으로 단계적으로만 넓어집니다.
+      개인정보·민원 당사자·인사 관련 내용은 적지 마세요. 공개 승격은 항상 사람이 승인합니다.</span></div>
+
+    <div class="filters">
+      ${[['all','전체',NOTES.length],['mine','내가 쓴 메모',NOTES.filter(n=>n.w.includes('나')).length],
+         ['shared','전달·공유된 메모',NOTES.filter(n=>n.lv!=='priv').length]]
+       .map(([k,l,c])=>`<button class="fchip" data-notef="${k}" aria-pressed="${f===k}">${l} <span class="c num">${c}</span></button>`).join('')}
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:14px">
+      ${list.map(n=>`<article class="note">
+        <div class="note-head">${srcTag('exp')}<span class="chip navy">${esc(n.task)}</span>
+          <span class="chip ${LV[n.lv].c}">${LV[n.lv].l}</span></div>
+        <p>${esc(n.b)}</p>
+        <div class="note-foot"><span class="w">${esc(n.w)}</span><span class="num">${n.y}학년도</span>
+          <button class="btn btn-ghost btn-sm" style="margin-left:auto" data-task="t2">관련 업무 열기</button></div>
+      </article>`).join('')}
+    </div>
+  </div>`;
+}
+
+/* ============================================================
+   VIEW · 인수인계서 (F11 + F19)
+   ============================================================ */
+function vHandover(){
+  const done=TASKS.filter(t=>t.st==='완료');
+  return `<div class="stack">
+    <div class="page-head">
+      <div><span class="eyebrow">2026학년도 · 자동 축적</span>
+        <h1 class="t-display" style="margin-top:9px">인수인계서 초안</h1>
+        <p class="sub">연말에 새로 쓰는 문서가 아니라, 1년간의 업무 기록에서 자동으로 만들어집니다.</p></div>
+      <div style="display:flex;gap:9px">
+        <button class="btn btn-quiet" data-open="review">메모 검토 모드</button>
+        <button class="btn btn-primary" disabled>내보내기 (백엔드 연결 전)</button>
+      </div>
+    </div>
+
+    <div class="notice">${I.info}
+      <span><strong>아직 초안입니다.</strong> 후임자에게 전달되는 내용은 연말 검토에서 직접 선택한 항목만 포함됩니다.
+      비공개 메모 <b class="num">2건</b>은 현재 제외되어 있습니다.</span></div>
+
+    <div class="ho-doc">
+      <span class="eyebrow">한빛중학교</span>
+      <h2 class="t-display" style="margin-top:10px">2026학년도 과학정보부 업무 인수인계</h2>
+      <p class="t-cap" style="margin-top:8px">작성 기준일 2026.08.28 · 담당 박새연 · 자동 생성 초안</p>
+
+      <h3>1. 연간 업무 흐름</h3>
+      ${TASKS.slice(0,6).map(t=>`<div class="ho-line"><span class="k">${esc(t.t)}</span>
+        <span class="v">준비 ${fmt(t.prep)} · 마감 ${fmt(t.due)}</span></div>`).join('')}
+
+      <h3>2. 올해 완료한 업무</h3>
+      ${done.map(t=>`<div class="ho-line"><span class="k">${esc(t.t)}</span><span class="v">${fmtY(t.due)} 완료</span></div>`).join('')}
+
+      <h3>3. 미완료·이월 업무</h3>
+      ${TASKS.filter(t=>t.st==='진행중').map(t=>`<div class="ho-line"><span class="k">${esc(t.t)}</span>
+        <span class="v">${t.done}/${t.total} 단계 진행 중</span></div>`).join('')}
+
+      <h3>4. 전달 예정 경험 메모</h3>
+      ${NOTES.filter(n=>n.lv!=='priv').map(n=>`<div class="mini-note" style="margin-top:12px">
+        <span style="display:flex;gap:7px"><span class="chip ${LV[n.lv].c}">${LV[n.lv].l}</span><span class="chip">${esc(n.task)}</span></span>
+        <p>${esc(n.b)}</p><span class="mf">${esc(n.w)} · ${n.y}학년도</span></div>`).join('')}
+      <div class="notice flat" style="margin-top:14px">${I.info}
+        <span>비공개 메모 <b class="num">2건</b>은 포함되지 않았습니다. 검토 모드에서 전달 여부를 다시 판단하세요.</span></div>
+
+      <h3>5. 주요 근거 문서</h3>
+      ${DOCS.filter(d=>d.s==='official').map(d=>`<div class="ho-line"><span class="k">${esc(d.t)}</span>
+        <span class="v">${esc(d.no)}</span></div>`).join('')}
+    </div>
+  </div>`;
+}
+
+/* ============================================================
+   VIEW · 업무 상세
+   ============================================================ */
+function vTask(){
+  const t=T(state.task)||T('t2');
+  const ck=state.checks[t.id]||state.checks.t2;
+  const on=ck.filter(c=>c.on).length;
+  const chain=CHAIN[t.id]||CHAIN.t2, tl=PREVTL[t.id]||PREVTL.t2;
+  return `<div class="stack">
+    <button class="btn btn-ghost btn-sm" data-route="home" style="align-self:flex-start;margin-left:-10px">
+      <span style="transform:rotate(180deg);display:flex">${I.chev}</span> 내 업무 홈</button>
+
+    <div class="page-head">
+      <div><span class="eyebrow">${esc(t.cat)} · 과학정보부장</span>
+        <h1 class="t-display" style="margin-top:9px">${esc(t.t)}</h1>
+        <p class="sub">${esc(t.why)}</p></div>
+      <div style="display:flex;gap:9px">
+        <button class="btn btn-quiet" data-open="note">경험 메모 쓰기</button>
+        <button class="btn btn-primary" data-open="assistant">이 업무 도우미 열기</button>
+      </div>
+    </div>
+
+    <section class="card card-pad">
+      <div class="card-head"><span class="lead"><h2 class="t-h2">이 업무의 세 날짜</h2></span>
+        <span class="chip ${dd(t.due)<=5?'danger':'warn'}">공식 마감까지 D-${dd(t.due)}</span></div>
+      ${rail(t)}
+      <div class="legend">
+        <span class="leg"><span class="sw" style="background:var(--navy-300)"></span><span><span class="lt">권장 준비 시작일</span><br><span class="lv num">${fmtY(t.prep)}</span></span></span>
+        <span class="leg"><span class="sw" style="background:var(--gam)"></span><span><span class="lt">전년도 실제 처리일</span><br><span class="lv num">${fmtY(t.prev)}</span></span></span>
+        <span class="leg"><span class="sw" style="background:var(--navy-700)"></span><span><span class="lt">공식 마감일</span><br><span class="lv num">${fmtY(t.due)}</span></span></span>
+        <span class="leg"><span class="sw" style="background:var(--ok)"></span><span><span class="lt">오늘</span><br><span class="lv num">2026.08.28</span></span></span>
+      </div>
+    </section>
+
+    <div class="two">
+      <div class="stack" style="gap:22px">
+        <section class="card card-pad">
+          <div class="card-head"><span class="lead"><h2 class="t-h2">업무 체크리스트</h2>
+            <span class="chip navy num">${on}/${ck.length}</span></span>
+            <span class="t-cap">체크 기록은 인수인계서에 자동 반영됩니다</span></div>
+          ${ck.map((c,i)=>`<div class="check ${c.on?'on':''}">
+            <button class="cbox" data-check="${i}" role="checkbox" aria-checked="${c.on}" aria-label="${esc(c.t)}">${c.on?I.check:''}</button>
+            <span><span class="ct">${esc(c.t)}</span>${c.m?`<span class="cm">${esc(c.m)}</span>`:''}</span></div>`).join('')}
+        </section>
+
+        <section class="card card-pad">
+          <div class="card-head"><span class="lead"><h2 class="t-h2">공문 → 매뉴얼 → 법령 연결</h2></span>
+            <span class="t-cap">여러 사이트를 따라다니지 않아도 됩니다</span></div>
+          <div class="chain">
+            ${chain.map(c=>`<div class="chain-i ${c.s==='school'?'src-school':''}">
+              <span class="cl">${esc(c.lv)}</span>
+              <span class="cn">${esc(c.t)}</span>
+              <span class="cd">${esc(c.d)}</span>
+              <span style="display:inline-flex;margin-top:8px">${srcTag(c.s)}</span></div>`).join('')}
+          </div>
+          <div class="notice" style="margin-top:16px">${I.info}
+            <span><strong>작년과 달라진 내용이 있습니다.</strong> 2026 지침에서 운영 기간이 5일에서 7일로 확대되었습니다.
+            전년도 계획서를 그대로 사용하면 기간이 맞지 않습니다.</span></div>
+        </section>
+      </div>
+
+      <div class="stack" style="gap:22px">
+        <section class="card card-pad">
+          <div class="card-head"><span class="lead"><h2 class="t-h2">전년도 처리 순서</h2></span></div>
+          <div class="tl">${tl.map(x=>`<div class="tl-i"><div class="d">${x.d}</div><div class="x">${esc(x.x)}</div></div>`).join('')}</div>
+          <div class="notice flat" style="margin-top:10px">${I.info}
+            <span>접수부터 제출까지 <b class="num">${days(D(tl[0].d.replace(/\./g,'-')),D(tl[tl.length-2].d.replace(/\./g,'-')))}일</b>이 걸렸습니다.
+            오늘 기준 남은 기간은 <b class="num">${dd(t.due)}일</b>입니다.</span></div>
+        </section>
+
+        <section class="card card-pad">
+          <div class="card-head"><span class="lead"><h2 class="t-h2">필요한 양식</h2></span></div>
+          ${['운영계획 내부결재 예시','가정통신문 양식','결과보고 서식'].map(f=>`<div class="frow">
+            <span class="fic">${I.file}</span>
+            <span><span class="fn">${esc(f)}</span><span class="fm">학교사례 · 2025학년도</span></span>
+            <button class="btn btn-quiet btn-sm">열기</button></div>`).join('')}
+        </section>
+
+        <section class="card card-pad">
+          <div class="card-head"><span class="lead"><h2 class="t-h2">경험 메모</h2></span>
+            <button class="btn btn-ghost btn-sm" data-open="note">추가</button></div>
+          ${NOTES.filter(n=>n.task===t.t).map(n=>`<div class="mini-note">
+            <span style="display:flex;gap:7px">${srcTag('exp')}<span class="chip ${LV[n.lv].c}">${LV[n.lv].l}</span></span>
+            <p>${esc(n.b)}</p><span class="mf">${esc(n.w)} · ${n.y}학년도</span></div>`).join('')
+            ||`<p class="t-cap">아직 이 업무의 경험 메모가 없습니다. 지금 알게 된 것을 한 줄 남겨 두세요.</p>`}
+        </section>
+      </div>
+    </div>
+  </div>`;
+}
+
+const VIEWS={home:vHome,map:vMap,docs:vDocs,notes:vNotes,handover:vHandover,task:vTask};
+function render(){
+  $('#view').innerHTML=VIEWS[state.route]();
+  $$('.nav-item').forEach(b=>{
+    const on=b.dataset.route===state.route||(state.route==='task'&&b.dataset.route==='home');
+    on?b.setAttribute('aria-current','page'):b.removeAttribute('aria-current');
+  });
+  const a=ASSIGN.find(x=>x.id===state.assign);
+  $('#ctxName').textContent=a.name;
+  $('#ctxMeta').textContent=`한빛중학교 · 2026학년도 · 업무 ${a.n}개`;
+  window.scrollTo({top:0,behavior:'instant'});
+}
+
+/* ============================================================
+   Overlays
+   ============================================================ */
+let lastF=null;
+function close(){$('#ov').innerHTML='';document.body.style.overflow='';if(lastF)lastF.focus()}
+function open(h){lastF=document.activeElement;$('#ov').innerHTML=h;document.body.style.overflow='hidden';
+  const f=$('#ov').querySelector('button,input,textarea');if(f)f.focus()}
+
+function mAssign(){open(`<div class="scrim" data-scrim><div class="modal" role="dialog" aria-modal="true" aria-labelledby="a1">
+  <div class="modal-head"><div style="display:flex;justify-content:space-between;gap:16px">
+    <div><span class="eyebrow">한빛중학교 · 2026학년도</span><h2 id="a1" class="t-h1" style="margin-top:8px">담당 업무 선택</h2>
+      <p class="t-cap" style="margin-top:6px">서버가 허용한 업무분장만 표시됩니다. 선택은 작업 맥락을 바꾸는 것이며 권한을 부여하지 않습니다.</p></div>
+    <button class="icon-btn" data-close aria-label="닫기">${I.x}</button></div></div>
+  <div class="modal-body"><div class="opt-grid">
+    ${ASSIGN.map(a=>`<button class="opt" data-assign="${a.id}" aria-pressed="${a.id===state.assign}">
+      <span class="tick">${I.check}</span><span class="ot">${esc(a.name)}</span>
+      <span class="om">${esc(a.meta)} · 업무 ${a.n}개</span></button>`).join('')}</div>
+    <div class="notice info" style="margin-top:18px">${I.info}
+      <span>목록에 없는 업무를 맡으셨나요? 담당 업무 추가는 권한 상승이 아니라 <strong>학교 자체 업무 등록·제안</strong>으로 진행됩니다.
+      현재 배포에서는 백엔드 계약이 없어 비활성 상태입니다.</span></div></div>
+  <div class="modal-foot"><button class="btn btn-quiet" disabled>업무 등록 제안</button>
+    <button class="btn btn-quiet" data-close>취소</button>
+    <button class="btn btn-primary" data-assign-ok>이 업무로 계속하기</button></div></div></div>`)}
+
+const STEPS=['선택','업로드','서버 검사','파싱','분석','검토 필요'];let step=0,timer=null;
+function mUpload(){step=0;open(upHTML());bindDrop()}
+function upHTML(){
+  const fs=[{n:'2025_과학정보부_기안문서목록.xlsx',s:'248 KB'},{n:'2025_AI교육주간_운영계획.hwp',s:'1.4 MB'},{n:'2025_접수문서목록.csv',s:'86 KB'}];
+  const pct=Math.min(100,step*20);
+  return `<div class="scrim" data-scrim><div class="modal wide" role="dialog" aria-modal="true" aria-labelledby="u1">
+  <div class="modal-head"><div style="display:flex;justify-content:space-between;gap:16px">
+    <div><span class="eyebrow">MVP P0 · 파일 업로드·분석</span><h2 id="u1" class="t-h1" style="margin-top:8px">문서 업로드·분석</h2>
+      <p class="t-cap" style="margin-top:6px">분석 결과는 사람이 승인하기 전까지 <strong>초안</strong>이며, 자동으로 확정 업무가 되지 않습니다.</p></div>
+    <button class="icon-btn" data-close aria-label="닫기">${I.x}</button></div>
+    <div class="steps" style="margin-top:18px" aria-live="polite">
+      ${STEPS.map((s,i)=>`<span class="s ${i<step?'ok':(i===step?'on':'')}">${s}</span>`).join('<span>›</span>')}</div></div>
+  <div class="modal-body">
+    ${step===0?`<div class="drop" id="drop">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#2C6DAE" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+        <p class="t-h2" style="margin:12px 0 5px">에듀파인에서 받은 파일을 여기에 놓으세요</p>
+        <p class="t-cap">HWP · PDF · DOCX · XLSX · CSV · ZIP · 파일당 20MB · 최대 30개</p>
+        <button class="btn btn-primary btn-sm" style="margin-top:16px" data-upstart>파일 선택</button></div>
+      <div class="notice" style="margin-top:18px">${I.info}
+        <span><strong>개인정보 주의.</strong> 학생·교직원 명단, 인사 자료, 민원 당사자 정보가 포함된 문서는 올리지 마세요.
+        파일은 서버에서 검사·격리 후 처리되며 본문은 브라우저에 저장하지 않습니다.</span></div>`
+    :`<div style="display:flex;justify-content:space-between;align-items:center"><span class="t-h2">파일 3개</span>
+        <span class="t-cap num">${pct}% · ${STEPS[Math.min(step,5)]}</span></div>
+      <div class="prog" style="margin:10px 0 14px"><span class="bar"><i style="width:${pct}%"></i></span></div>
+      ${fs.map((f,i)=>`<div class="frow"><span class="fic">${I.file}</span>
+        <span><span class="fn">${esc(f.n)}</span><span class="fm">${f.s}</span></span>
+        <span class="chip ${step>=5?(i===2?'warn':'ok'):''}">${step>=5?(i===2?'검토 필요':'완료'):(step>=1?'처리 중':'대기')}</span></div>`).join('')}
+      ${step>=5?`<div class="divider"></div>
+        <div style="display:flex;gap:9px;align-items:center;margin-bottom:14px"><span class="t-h2">AI 분석 초안</span>
+          <span class="chip warn">승인 전 초안</span></div>
+        <div class="draft"><div class="dt">새 업무 후보 · AI 교육주간 운영</div>
+          <div class="dm">문서 4건이 같은 업무로 묶였습니다. 전년도 처리 시점은 2025.08.24, 공식 마감은 접수 공문 기준 09.02로 <strong>추정</strong>되었습니다. 확인이 필요합니다.</div>
+          <div style="display:flex;gap:8px;margin-top:14px"><button class="btn btn-primary btn-sm" data-approve>업무로 등록</button>
+            <button class="btn btn-quiet btn-sm">수정</button><button class="btn btn-quiet btn-sm">제외</button></div></div>
+        <div class="draft"><div class="dt">연결 실패 · 2025_접수문서목록.csv 3행</div>
+          <div class="dm">문서번호 형식이 인식되지 않아 업무에 연결하지 못했습니다. 원본을 확인하고 다시 시도하세요.</div>
+          <div style="display:flex;gap:8px;margin-top:14px"><button class="btn btn-quiet btn-sm">다시 시도</button>
+            <button class="btn btn-quiet btn-sm">건너뛰기</button></div></div>`:''}`}
+  </div>
+  <div class="modal-foot">${step>0&&step<5?`<button class="btn btn-quiet" data-close>취소</button>`:''}
+    ${step>=5?`<button class="btn btn-quiet" data-close>나중에 검토</button><button class="btn btn-primary" data-approve>초안 검토 완료</button>`:''}</div>
+  </div></div>`;
+}
+function bindDrop(){const d=$('#drop');if(!d)return;
+  ['dragenter','dragover'].forEach(e=>d.addEventListener(e,ev=>{ev.preventDefault();d.classList.add('over')}));
+  ['dragleave','drop'].forEach(e=>d.addEventListener(e,ev=>{ev.preventDefault();d.classList.remove('over')}));
+  d.addEventListener('drop',runUp);}
+function runUp(){clearInterval(timer);step=1;$('#ov').innerHTML=upHTML();
+  timer=setInterval(()=>{step++;if(step>=5){step=5;clearInterval(timer)}if($('#ov').innerHTML)$('#ov').innerHTML=upHTML()},900)}
+
+function mNote(){open(`<div class="scrim" data-scrim><div class="modal" role="dialog" aria-modal="true" aria-labelledby="n1">
+  <div class="modal-head"><div style="display:flex;justify-content:space-between;gap:16px">
+    <div><span class="eyebrow">경험 메모</span><h2 id="n1" class="t-h1" style="margin-top:8px">이번에 알게 된 것 기록하기</h2>
+      <p class="t-cap" style="margin-top:6px">한두 줄이면 충분합니다. 연말에 모아서 인수인계 자료로 정리합니다.</p></div>
+    <button class="icon-btn" data-close aria-label="닫기">${I.x}</button></div></div>
+  <div class="modal-body">
+    <span class="eyebrow">메모 내용</span>
+    <textarea rows="5" style="width:100%;margin-top:10px;padding:14px;border:1px solid var(--line);border-radius:11px;resize:vertical;outline:none;font-size:14px;line-height:1.7"
+      placeholder="예: 운영계획 기안 전에 교감 선생님과 일정을 먼저 협의할 것"></textarea>
+    <div style="margin-top:20px"><span class="eyebrow">공개 범위</span>
+      <div class="opt-grid" style="margin-top:10px;grid-template-columns:1fr 1fr 1fr">
+        <button class="opt" aria-pressed="true"><span class="tick">${I.check}</span><span class="ot">나만 보기</span><span class="om">연말 검토 전까지 비공개</span></button>
+        <button class="opt" aria-pressed="false"><span class="tick">${I.check}</span><span class="ot">후임자 전달</span><span class="om">인수인계 전달 후보</span></button>
+        <button class="opt" aria-pressed="false"><span class="tick">${I.check}</span><span class="ot">학교 조직지식</span><span class="om">승인 후 학교에 축적</span></button>
+      </div></div>
+    <div class="notice" style="margin-top:18px">${I.info}
+      <span>학생·학부모·교직원을 특정할 수 있는 표현은 저장 전 검사합니다. 민감한 내용은 <strong>나만 보기</strong>로 남기고 연말 검토에서 다시 판단하세요.</span></div>
+  </div>
+  <div class="modal-foot"><button class="btn btn-quiet" data-close>취소</button>
+    <button class="btn btn-primary" data-savenote>메모 저장</button></div></div></div>`)}
+
+function mReview(){open(`<div class="scrim" data-scrim><div class="modal wide" role="dialog" aria-modal="true" aria-labelledby="r1">
+  <div class="modal-head"><div style="display:flex;justify-content:space-between;gap:16px">
+    <div><span class="eyebrow">F19 · 인수인계 전 메모 검토</span><h2 id="r1" class="t-h1" style="margin-top:8px">1년치 메모 검토</h2>
+      <p class="t-cap" style="margin-top:6px">기록할 때는 자유롭게, 전달할 때는 신중하게. 전달할 메모만 골라 인수인계서에 넣습니다.</p></div>
+    <button class="icon-btn" data-close aria-label="닫기">${I.x}</button></div></div>
+  <div class="modal-body">
+    ${NOTES.map(n=>`<div class="mini-note" style="margin-bottom:12px">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <span class="chip ${LV[n.lv].c}">${LV[n.lv].l}</span><span class="chip">${esc(n.task)}</span>
+        <span class="t-cap num" style="margin-left:auto">${n.y}학년도</span></div>
+      <p>${esc(n.b)}</p>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn btn-quiet btn-sm">비공개 유지</button>
+        <button class="btn btn-quiet btn-sm">표현 다듬기</button>
+        <button class="btn btn-primary btn-sm">후임자에게 전달</button></div></div>`).join('')}
+    <div class="notice">${I.info}
+      <span>AI는 민감 표현을 찾아 순화 초안을 제안할 수 있지만, <strong>최종 전달 여부는 항상 사람이 승인</strong>합니다.</span></div>
+  </div>
+  <div class="modal-foot"><button class="btn btn-quiet" data-close>닫기</button>
+    <button class="btn btn-primary" data-savenote>검토 결과 저장</button></div></div></div>`)}
+
+function pNotif(){
+  const bg={due:'var(--danger-bg);color:var(--danger-ink)',prep:'var(--warn-bg);color:var(--warn-ink)',
+    doc:'var(--navy-050);color:var(--navy-700)',upd:'var(--navy-050);color:var(--navy-700)',ok:'var(--ok-bg);color:var(--ok-ink)'};
+  open(`<div class="scrim" data-scrim style="justify-content:flex-end;padding:0">
+  <aside class="panel" role="dialog" aria-modal="true" aria-labelledby="p1">
+    <div class="panel-head"><div style="display:flex;justify-content:space-between;align-items:center">
+      <h2 id="p1" class="t-h1">알림</h2><button class="icon-btn" data-close aria-label="닫기">${I.x}</button></div>
+      <div class="notice" style="margin-top:14px">${I.info}
+        <span>알림은 P1 실기능입니다. 현재 화면은 <strong>시연 데이터</strong>이며 실제 발송·읽음 처리·중복 방지는 백엔드 연결 후 동작합니다.</span></div></div>
+    <div class="panel-body">${NOTIF.map(n=>`<button class="notif ${n.new?'new':''}" ${n.task?`data-task="${n.task}"`:''}>
+      <span class="ni" style="background:${bg[n.k]}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4.5l3 1.8"/></svg></span>
+      <span><span class="nt">${esc(n.t)}</span><span class="nm">${esc(n.m)}</span></span></button>`).join('')}</div>
+    <div class="modal-foot"><button class="btn btn-quiet" data-close>닫기</button>
+      <button class="btn btn-primary" data-readall>모두 읽음</button></div></aside></div>`)}
+
+/* F22 — Show first, ask second */
+function pAssistant(){
+  const t=T(state.task)||T('t2');
+  open(`<div class="scrim" data-scrim style="justify-content:flex-end;padding:0">
+  <aside class="panel" role="dialog" aria-modal="true" aria-labelledby="as1">
+    <div class="panel-head"><div style="display:flex;justify-content:space-between;align-items:center">
+      <h2 id="as1" class="t-h1">업무 도우미</h2><button class="icon-btn" data-close aria-label="닫기">${I.x}</button></div>
+      <p class="t-cap" style="margin-top:8px">현재 업무 맥락 안에서만 답합니다. 근거 문서 없이 답하지 않습니다.</p></div>
+    <div class="panel-body" style="padding:22px 24px">
+      <span class="eyebrow">지금 이 업무</span>
+      <div class="mini-note" style="margin-top:10px">
+        <span class="chip navy">${esc(t.cat)}</span>
+        <p style="font-weight:640">${esc(t.t)}</p>
+        <span class="mf">공식 마감 ${fmtY(t.due)} · 작년 처리 ${fmt(t.prev)} · 남은 기간 ${dd(t.due)}일</span></div>
+
+      <span class="eyebrow" style="display:block;margin-top:24px">먼저 확인할 것</span>
+      <div style="margin-top:10px">
+        <button class="sugg" data-task="${t.id}">작년 우리 학교는 이 업무를 어떻게 처리했나요?
+          <span class="sm">근거 · 한빛중 제2025-4417호</span></button>
+        <button class="sugg" data-task="${t.id}">올해 지침에서 달라진 부분만 알려주세요
+          <span class="sm">근거 · 경기도교육청 제2026-1183호</span></button>
+        <button class="sugg" data-task="${t.id}">지금 온 공문에서 제가 해야 할 일만 뽑아주세요
+          <span class="sm">근거 · 한빛교육지원청 제2026-9241호</span></button>
+      </div>
+
+      <div class="notice info" style="margin-top:24px">${I.info}
+        <span>도우미는 문서를 정리하고 제안합니다. <strong>판단과 승인은 담당자가 합니다.</strong>
+        답변에는 항상 사용한 근거 문서가 함께 표시됩니다.</span></div>
+    </div>
+    <div class="modal-foot" style="justify-content:stretch">
+      <div class="search" style="flex:1;height:40px"><input placeholder="이 업무에 대해 질문하기" aria-label="질문 입력"/></div>
+      <button class="btn btn-primary" disabled>질문</button></div></aside></div>`)}
+
+/* ---------------- search ---------------- */
+function search(q){
+  const box=$('#results');
+  if(!q.trim()){box.hidden=true;return}
+  const k=q.trim().toLowerCase();
+  const ts=TASKS.filter(t=>t.t.toLowerCase().includes(k)||t.cat.includes(k)).slice(0,3);
+  const ds=DOCS.filter(d=>d.t.toLowerCase().includes(k)||d.no.toLowerCase().includes(k)).slice(0,3);
+  const ns=NOTES.filter(n=>n.b.includes(k)||n.task.includes(k)).slice(0,2);
+  const g=(l,a)=>a.length?`<div class="res-group"><span class="eyebrow">${l}</span></div>${a.join('')}`:'';
+  let h=g('업무',ts.map(t=>`<button class="res-item" data-task="${t.id}"><span class="rt">${esc(t.t)}</span>
+      <span class="rm num">마감 ${fmtY(t.due)} · 작년 ${fmt(t.prev)}</span></button>`))
+    + g('문서',ds.map(d=>`<button class="res-item" data-route="docs"><span class="rt">${esc(d.t)}</span>
+      <span class="rm">${srcTag(d.s)} ${esc(d.no)}</span></button>`))
+    + g('경험 메모',ns.map(n=>`<button class="res-item" data-route="notes"><span class="rt">${esc(n.b.slice(0,40))}…</span>
+      <span class="rm">${srcTag('exp')} ${esc(n.task)} · ${n.y}</span></button>`));
+  if(!h)h=`<div class="empty" style="padding:34px 18px"><p class="t-h2">"${esc(q)}" 결과가 없습니다</p>
+    <p class="t-cap" style="margin-top:6px">업무명이나 공문 제목의 일부만 입력해 보세요.</p></div>`;
+  box.innerHTML=h;box.hidden=false;
+}
+
+/* ---------------- events ---------------- */
+document.addEventListener('click',e=>{
+  const q=s=>e.target.closest(s);
+  if(q('[data-close]')||(e.target.hasAttribute&&e.target.hasAttribute('data-scrim'))){clearInterval(timer);close();return}
+  if(q('[data-navclose]')){document.body.classList.remove('nav-on');return}
+  const tk=q('[data-task]');
+  if(tk){state.task=tk.dataset.task;state.route='task';$('#results').hidden=true;clearInterval(timer);close();render();return}
+  const nv=q('[data-route]');
+  if(nv){state.route=nv.dataset.route;document.body.classList.remove('nav-on');$('#results').hidden=true;close();render();return}
+  const op=q('[data-open]');
+  if(op){({assign:mAssign,upload:mUpload,note:mNote,review:mReview,assistant:pAssistant})[op.dataset.open]();return}
+  if(q('#bell')){pNotif();return}
+  if(q('#fab')){pAssistant();return}
+  if(q('#hamb')){document.body.classList.toggle('nav-on');return}
+  const as=q('[data-assign]');
+  if(as){$$('[data-assign]').forEach(b=>b.setAttribute('aria-pressed','false'));as.setAttribute('aria-pressed','true');state.assign=as.dataset.assign;return}
+  if(q('[data-assign-ok]')){close();render();toast('담당 업무를 전환했습니다');return}
+  if(q('[data-upstart]')){runUp();return}
+  if(q('[data-approve]')){clearInterval(timer);close();state.route='docs';render();toast('초안 검토를 완료했습니다');return}
+  if(q('[data-savenote]')){close();toast('저장했습니다 (시연)');return}
+  if(q('[data-readall]')){$$('.notif').forEach(n=>n.classList.remove('new'));toast('모두 읽음으로 표시했습니다 (시연)');return}
+  const df=q('[data-docf]');if(df){state.docF=df.dataset.docf;render();return}
+  const nf=q('[data-notef]');if(nf){state.noteF=nf.dataset.notef;render();return}
+  const so=q('[data-sort]');
+  if(so){const k=so.dataset.sort;state.sort=state.sort.k===k?{k,d:state.sort.d==='asc'?'desc':'asc'}:{k,d:'asc'};render();return}
+  const cb=q('[data-check]');
+  if(cb){const id=state.task,i=+cb.dataset.check;const arr=state.checks[id]||state.checks.t2;arr[i].on=!arr[i].on;render();return}
+  const fc=q('.fchip:not([data-docf]):not([data-notef])');
+  if(fc){fc.setAttribute('aria-pressed',fc.getAttribute('aria-pressed')==='true'?'false':'true');return}
+  const opt=q('.opt:not([data-assign])');
+  if(opt){$$('.opt',opt.parentElement).forEach(b=>b.setAttribute('aria-pressed','false'));opt.setAttribute('aria-pressed','true');return}
+  if(!q('.search-wrap'))$('#results').hidden=true;
+});
+
+$('#q').addEventListener('input',e=>search(e.target.value));
+
+/* 데스크톱 단축키: / 검색, g+h/m/d/n/i 이동, Esc 닫기 */
+let gKey=false;
+document.addEventListener('keydown',e=>{
+  const typing=/INPUT|TEXTAREA/.test(document.activeElement.tagName);
+  if(e.key==='Escape'){clearInterval(timer);close();$('#results').hidden=true;document.body.classList.remove('nav-on')}
+  if(e.key==='/'&&!typing){e.preventDefault();$('#q').focus()}
+  if(!typing){
+    if(e.key==='g'){gKey=true;setTimeout(()=>gKey=false,900);return}
+    if(gKey){const m={h:'home',m:'map',d:'docs',n:'notes',i:'handover'}[e.key];
+      if(m){gKey=false;state.route=m;close();render()}}
+  }
+  if(e.key==='Tab'&&$('#ov').firstElementChild){
+    const f=$$('#ov button,#ov input,#ov textarea').filter(x=>!x.disabled);
+    if(!f.length)return;const a=f[0],z=f[f.length-1];
+    if(e.shiftKey&&document.activeElement===a){e.preventDefault();z.focus()}
+    else if(!e.shiftKey&&document.activeElement===z){e.preventDefault();a.focus()}
+  }
+});
+
+render();
+</script>
+</body>
+</html>
