@@ -2,6 +2,9 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getDocuments } from "@/services/documentsService";
 import { useOverlay } from "@/state/OverlayContext";
+import { useAssignment } from "@/state/AssignmentContext";
+import { useQueries } from "@tanstack/react-query";
+import { getTasks } from "@/services/tasksService";
 import { qk } from "@/state/queryKeys";
 import { QueryBoundary } from "@/components/ui/QueryBoundary";
 import { SourceTag } from "@/components/ui/SourceTag";
@@ -28,10 +31,13 @@ export function DocumentsPage() {
   const [filter, setFilter] = useState<FilterKey>("all");
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({ key: "issuedAt", dir: "desc" });
   const { open } = useOverlay();
+  const { selectedAssignmentIds } = useAssignment();
   const query = useQuery({ queryKey: qk.documents(), queryFn: ({ signal }) => getDocuments(signal) });
+  const taskQueries = useQueries({ queries: selectedAssignmentIds.map((assignmentId) => ({ queryKey: qk.tasks(assignmentId), queryFn: ({ signal }: { signal: AbortSignal }) => getTasks(assignmentId, signal) })) });
+  const taskTitles = useMemo(() => new Set(taskQueries.flatMap((taskQuery) => taskQuery.data ?? []).map((task) => task.title)), [taskQueries]);
 
   const filtered = useMemo(() => {
-    const items = query.data ?? [];
+    const items = (query.data ?? []).filter((document) => taskTitles.has(document.relatedTaskTitle) || (selectedAssignmentIds.includes("sci") && document.relatedTaskTitle === "과학정보 · 공통"));
     const byFilter = items.filter((d) => {
       if (filter === "all") return true;
       if (filter === "pending") return d.analysisStatus !== "complete";
@@ -41,7 +47,7 @@ export function DocumentsPage() {
       const v = String(a[sort.key]).localeCompare(String(b[sort.key]), "ko");
       return sort.dir === "asc" ? v : -v;
     });
-  }, [query.data, filter, sort]);
+  }, [query.data, filter, sort, taskTitles, selectedAssignmentIds]);
 
   function toggleSort(key: SortKey) {
     setSort((s) => (s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }));
@@ -58,7 +64,7 @@ export function DocumentsPage() {
         <div>
           <h1 className="t-display">문서함</h1>
           <p className="sub">
-            <b>{query.data?.length ?? 0}건</b> · 2026.08.28 09:00 기준
+            <b>{filtered.length}건</b> · 선택한 담당 업무 기준
           </p>
         </div>
         <button className="btn btn-primary" onClick={() => open("upload")}>
@@ -69,7 +75,7 @@ export function DocumentsPage() {
       <div className="filters">
         {FILTERS.map((f) => (
           <button key={f.key} className="fchip" aria-pressed={filter === f.key} onClick={() => setFilter(f.key)}>
-            {f.label} <span className="c num">{countFor(query.data ?? [], f.key)}</span>
+            {f.label} <span className="c num">{countFor(filtered, f.key)}</span>
           </button>
         ))}
       </div>

@@ -1,14 +1,15 @@
 import { SearchBox } from "./SearchBox";
 import { useOverlay } from "@/state/OverlayContext";
-import { BellIcon, MenuIcon } from "@/lib/icons";
+import { BellIcon } from "@/lib/icons";
+import gamPersimmon from "@/assets/brand/gam-persimmon-green.png";
 
-export function Topbar({ onToggleNav }: { onToggleNav: () => void }) {
+export function Topbar({ navOpen, onToggleNav }: { navOpen: boolean; onToggleNav: () => void }) {
   const { open } = useOverlay();
 
   return (
     <header className="topbar">
-      <button className="hamb" id="hamb" aria-label="메뉴 열기" onClick={onToggleNav}>
-        <MenuIcon />
+      <button className="hamb gam-menu-toggle" id="hamb" type="button" aria-label={navOpen ? "사이드바 닫기" : "사이드바 열기"} onClick={onToggleNav}>
+        <img src={gamPersimmon} alt="" className="gam-menu-toggle-icon" />
       </button>
       <SearchBox />
 

@@ -3,6 +3,7 @@ import { Outlet, useMatch, useNavigate } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { AssignmentModal } from "./AssignmentModal";
+import { NewAssignmentModal } from "./NewAssignmentModal";
 import { NotificationPanel } from "./NotificationPanel";
 import { AssistantPanel } from "./AssistantPanel";
 import { UploadModal } from "@/components/upload/UploadModal";
@@ -41,7 +42,11 @@ export function AppShell() {
       }
       if (e.key === "/" && !typing) {
         e.preventDefault();
-        document.getElementById("q")?.focus();
+        if (window.matchMedia("(max-width: 760px)").matches) {
+          document.getElementById("mobile-search-trigger")?.click();
+        } else {
+          document.getElementById("q")?.focus();
+        }
         return;
       }
       if (typing) return;
@@ -69,7 +74,7 @@ export function AppShell() {
       <div className="side-scrim" onClick={() => setNavOpen(false)} />
       <Sidebar collapsed={sidebarCollapsed} onNavigate={() => setNavOpen(false)} onToggleCollapse={() => setSidebarCollapsed((value) => !value)} />
       <div className="main">
-        <Topbar onToggleNav={() => setNavOpen((v) => !v)} />
+        <Topbar navOpen={navOpen} onToggleNav={() => setNavOpen((v) => !v)} />
         <main className="view" id="view" tabIndex={-1}>
           <Outlet />
         </main>
@@ -81,6 +86,7 @@ export function AppShell() {
       </button>
 
       {overlay?.kind === "assign" && <AssignmentModal onClose={close} />}
+      {overlay?.kind === "new-assignment" && <NewAssignmentModal onClose={close} onNext={() => open("upload")} />}
       {overlay?.kind === "notifications" && <NotificationPanel onClose={close} />}
       {overlay?.kind === "assistant" && <AssistantPanel taskId={overlay.taskId} onClose={close} />}
       {overlay?.kind === "upload" && <UploadModal onClose={close} />}

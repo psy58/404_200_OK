@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { getTasks } from "@/services/tasksService";
 import { getFeed } from "@/services/feedService";
@@ -24,25 +24,32 @@ const VISIBILITY_LABEL: Record<string, { label: string; tone: string }> = {
 };
 
 export function HomePage() {
-  const { activeAssignment, activeAssignmentId } = useAssignment();
+  const { activeAssignment, selectedAssignmentIds } = useAssignment();
   const { open } = useOverlay();
 
-  const tasksQuery = useQuery({
-    queryKey: qk.tasks(activeAssignmentId ?? ""),
-    queryFn: ({ signal }) => getTasks(activeAssignmentId ?? "", signal),
-    enabled: !!activeAssignmentId,
+  const tasksQueries = useQueries({
+    queries: selectedAssignmentIds.map((assignmentId) => ({
+      queryKey: qk.tasks(assignmentId),
+      queryFn: ({ signal }: { signal: AbortSignal }) => getTasks(assignmentId, signal),
+    })),
   });
   const feedQuery = useQuery({ queryKey: qk.feed(), queryFn: ({ signal }) => getFeed(signal) });
   const notesQuery = useQuery({ queryKey: qk.notes(), queryFn: ({ signal }) => getExperienceNotes(signal) });
   const docsQuery = useQuery({ queryKey: qk.documents(), queryFn: ({ signal }) => getDocuments(signal) });
 
-  if (!activeAssignmentId) return <LoadingBlock label="담당 업무를 불러오는 중" />;
-  if (tasksQuery.isPending) return <LoadingBlock label="내 업무를 불러오는 중" />;
-  if (tasksQuery.isError) {
-    return <ErrorState description={(tasksQuery.error as Error).message} onRetry={() => tasksQuery.refetch()} />;
+  if (selectedAssignmentIds.length === 0) return <LoadingBlock label="담당 업무를 불러오는 중" />;
+  if (tasksQueries.some((query) => query.isPending)) return <LoadingBlock label="내 업무를 불러오는 중" />;
+  const failedTasksQuery = tasksQueries.find((query) => query.isError);
+  if (failedTasksQuery) {
+    return <ErrorState description={(failedTasksQuery.error as Error).message} onRetry={() => failedTasksQuery.refetch()} />;
   }
 
-  const tasks = tasksQuery.data;
+  const tasks = tasksQueries.flatMap((query) => query.data ?? []);
+  const selectedTaskIds = new Set(tasks.map((task) => task.id));
+  const selectedTaskTitles = new Set(tasks.map((task) => task.title));
+  const filteredFeed = (feedQuery.data ?? []).filter((item) => !item.relatedTaskId || selectedTaskIds.has(item.relatedTaskId));
+  const filteredNotes = (notesQuery.data ?? []).filter((note) => selectedTaskIds.has(note.taskId));
+  const filteredDocuments = (docsQuery.data ?? []).filter((document) => selectedTaskTitles.has(document.relatedTaskTitle) || (selectedAssignmentIds.includes("sci") && document.relatedTaskTitle === "과학정보 · 공통"));
   const inProgress = tasks.filter((t) => t.status === "in_progress");
   const upcoming = tasks.filter((t) => t.status === "upcoming");
   const doneCount = tasks.filter((t) => t.status === "complete").length;
@@ -93,7 +100,7 @@ export function HomePage() {
         <KpiCard
           accent="#0B4171"
           title="새로 온 관련 공문"
-          value={feedQuery.data?.length ?? 0}
+          value={filteredFeed.length}
           meta="관련 공문 확인"
           linkLabel="목록 보기"
           to="/home"
@@ -201,8 +208,8 @@ export function HomePage() {
               <Chip tone="navy">관련 업무</Chip>
             </div>
             <QueryBoundary query={feedQuery} isEmpty={(d) => d.length === 0} emptyTitle="새로 온 공문이 없습니다">
-              {(items) =>
-                items.map((f) => (
+              {() =>
+                filteredFeed.map((f) => (
                   <Link className="dfeed" to={f.relatedTaskId ? `/tasks/${f.relatedTaskId}` : "/docs"} key={f.id}>
                     <span className="stamp">접수</span>
                     <span style={{ minWidth: 0 }}>
@@ -232,11 +239,11 @@ export function HomePage() {
             </div>
             <QueryBoundary
               query={notesQuery}
-              isEmpty={(d) => d.filter((n) => n.visibility !== "private").length === 0}
+              isEmpty={() => filteredNotes.filter((n) => n.visibility !== "private").length === 0}
               emptyTitle="아직 공유된 경험 메모가 없습니다"
             >
-              {(items) =>
-                items
+              {() =>
+                filteredNotes
                   .filter((n) => n.visibility !== "private")
                   .slice(0, 2)
                   .map((n) => (
@@ -276,11 +283,11 @@ export function HomePage() {
             </div>
             <div className="ho-line">
               <span className="k">경험 메모</span>
-              <span className="v num">{(notesQuery.data ?? []).filter((n) => n.isMine).length}건 (비공개 포함)</span>
+              <span className="v num">{filteredNotes.filter((n) => n.isMine).length}건 (비공개 포함)</span>
             </div>
             <div className="ho-line">
               <span className="k">연결된 문서</span>
-              <span className="v num">{docsQuery.data?.length ?? 0}건</span>
+              <span className="v num">{filteredDocuments.length}건</span>
             </div>
             <div className="notice flat" style={{ marginTop: 16 }}>
               <InfoIcon />

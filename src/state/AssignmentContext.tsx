@@ -1,50 +1,68 @@
-/**
- * Current-assignment context (F01). Selecting an assignment changes working
- * context only — it is never treated as an authorization grant. The list of
- * selectable assignments always comes from the server-shaped mock endpoint;
- * this context never invents an assignment id itself.
- *
- * Persistence: BACKEND_CONTRACT_REQUIRED. Per docs/01 §11 F01, the active
- * Assignment should survive a revisit via a server-confirmed value; this
- * mock keeps it in memory only for the current tab session.
- */
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getAssignments } from "@/services/assignmentsService";
 import { qk } from "./queryKeys";
 import type { Assignment, School } from "@/domain/types";
+import { HAKMATONG_ID, readCustomDuties } from "./hakmatongDemo";
+
+const SELECTED_DUTY_IDS_KEY = "gam-selected-duty-ids";
 
 interface AssignmentContextValue {
   school: School | null;
   assignments: Assignment[];
   activeAssignmentId: string | null;
   activeAssignment: Assignment | null;
-  setActiveAssignmentId: (id: string) => void;
+  selectedAssignmentIds: string[];
+  selectedAssignments: Assignment[];
+  setSelectedAssignmentIds: (ids: string[]) => void;
+  refreshCustomAssignments: () => void;
   status: "loading" | "ready" | "error";
 }
 
 const AssignmentContext = createContext<AssignmentContextValue | null>(null);
 
-export function AssignmentProvider({ children }: { children: ReactNode }) {
-  const query = useQuery({
-    queryKey: qk.assignments(),
-    queryFn: ({ signal }) => getAssignments(signal),
-  });
-  const [activeAssignmentId, setActiveAssignmentId] = useState<string | null>(null);
+function readSelectedIds(): string[] {
+  try {
+    const value = JSON.parse(localStorage.getItem(SELECTED_DUTY_IDS_KEY) ?? "[]");
+    return Array.isArray(value) ? value.filter((id): id is string => typeof id === "string") : [];
+  } catch {
+    return [];
+  }
+}
 
-  const effectiveActiveId = activeAssignmentId ?? query.data?.items[0]?.id ?? null;
+export function AssignmentProvider({ children }: { children: ReactNode }) {
+  const query = useQuery({ queryKey: qk.assignments(), queryFn: ({ signal }) => getAssignments(signal) });
+  const [savedSelectedIds, setSavedSelectedIds] = useState<string[]>(readSelectedIds);
+  const [customRevision, setCustomRevision] = useState(0);
+  const assignments = useMemo(() => [...(query.data?.items ?? []).filter((assignment) => !assignment.note?.includes("신규 업무")), ...readCustomDuties()], [customRevision, query.data]);
+
+  const selectedAssignmentIds = useMemo(() => {
+    const valid = savedSelectedIds.filter((id) => assignments.some((assignment) => assignment.id === id));
+    return valid.length > 0 ? valid : assignments.slice(0, 2).map((assignment) => assignment.id);
+  }, [assignments, savedSelectedIds]);
+
+  useEffect(() => {
+    if (assignments.length === 0) return;
+    localStorage.setItem(SELECTED_DUTY_IDS_KEY, JSON.stringify(selectedAssignmentIds));
+  }, [assignments.length, selectedAssignmentIds]);
 
   const value = useMemo<AssignmentContextValue>(() => {
-    const items = query.data?.items ?? [];
+    const selectedAssignments = assignments.filter((assignment) => selectedAssignmentIds.includes(assignment.id));
     return {
       school: query.data?.school ?? null,
-      assignments: items,
-      activeAssignmentId: effectiveActiveId,
-      activeAssignment: items.find((a) => a.id === effectiveActiveId) ?? null,
-      setActiveAssignmentId,
+      assignments,
+      activeAssignmentId: selectedAssignmentIds[0] ?? null,
+      activeAssignment: selectedAssignments[0] ?? null,
+      selectedAssignmentIds,
+      selectedAssignments,
+      setSelectedAssignmentIds: setSavedSelectedIds,
+      refreshCustomAssignments: () => {
+        setCustomRevision((revision) => revision + 1);
+        setSavedSelectedIds((ids) => ids.includes(HAKMATONG_ID) ? ids : [...ids, HAKMATONG_ID]);
+      },
       status: query.isPending ? "loading" : query.isError ? "error" : "ready",
     };
-  }, [query.data, query.isPending, query.isError, effectiveActiveId]);
+  }, [assignments, query.data, query.isError, query.isPending, selectedAssignmentIds]);
 
   return <AssignmentContext.Provider value={value}>{children}</AssignmentContext.Provider>;
 }

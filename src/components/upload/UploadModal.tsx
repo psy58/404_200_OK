@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/state/ToastContext";
 import { InfoIcon, FileIcon, UploadIcon } from "@/lib/icons";
+import { useAssignment } from "@/state/AssignmentContext";
+import { clearDraft, createHakmatongDuty, readDraft } from "@/state/hakmatongDemo";
 
 const STEPS = ["선택", "업로드", "안전 확인", "내용 읽기", "분석", "검토"] as const;
 const MOCK_FILES = [
@@ -21,8 +23,12 @@ const MOCK_FILES = [
 export function UploadModal({ onClose }: { onClose: () => void }) {
   const [step, setStep] = useState(0);
   const [dragOver, setDragOver] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval>>();
   const { toast } = useToast();
+  const { refreshCustomAssignments } = useAssignment();
+  const draft = readDraft();
+  const isNewDutyFlow = !!draft;
 
   useEffect(() => () => clearInterval(timerRef.current), []);
 
@@ -42,14 +48,21 @@ export function UploadModal({ onClose }: { onClose: () => void }) {
   }
 
   const pct = Math.min(100, step * 20);
+  const files = isNewDutyFlow && uploadedFileName ? [{ name: uploadedFileName, size: "PDF · 내가 추가한 자료" }] : MOCK_FILES;
+  const finishNewDuty = () => {
+    if (draft && createHakmatongDuty(draft)) refreshCustomAssignments();
+    clearDraft();
+    onClose();
+    toast("학생맞춤통합지원 업무를 추가했습니다");
+  };
 
   return (
     <Modal
       titleId="upload-modal-title"
       wide
-      eyebrow="파일 업로드·분석"
-      title="문서 업로드·분석"
-      description="분석 결과는 사람이 승인하기 전까지 초안이며, 자동으로 확정 업무가 되지 않습니다."
+      eyebrow={isNewDutyFlow ? `${draft?.name} · ${draft?.assignedYear}년 ${draft?.assignedMonth}월부터 담당` : "파일 업로드·분석"}
+      title={isNewDutyFlow ? "관련 자료를 추가해주세요" : "문서 업로드·분석"}
+      description={isNewDutyFlow ? "기존에 받은 공문이나 전임자 자료가 있다면 올려주세요. GAM이 업무 흐름을 정리해드릴게요." : "분석 결과는 사람이 승인하기 전까지 초안이며, 자동으로 확정 업무가 되지 않습니다."}
       onClose={onClose}
       footer={
         <>
@@ -66,11 +79,10 @@ export function UploadModal({ onClose }: { onClose: () => void }) {
               <button
                 className="btn btn-primary"
                 onClick={() => {
-                  onClose();
-                  toast("초안 검토를 완료했습니다");
+                  if (isNewDutyFlow) finishNewDuty(); else { onClose(); toast("초안 검토를 완료했습니다"); }
                 }}
               >
-                초안 검토 완료
+                {isNewDutyFlow ? "업무 감 잡기" : "초안 검토 완료"}
               </button>
             </>
           )}
@@ -92,11 +104,11 @@ export function UploadModal({ onClose }: { onClose: () => void }) {
             onDragEnter={(e) => { e.preventDefault(); setDragOver(true); }}
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
             onDragLeave={(e) => { e.preventDefault(); setDragOver(false); }}
-            onDrop={(e) => { e.preventDefault(); setDragOver(false); runUpload(); }}
+            onDrop={(e) => { e.preventDefault(); setDragOver(false); setUploadedFileName(e.dataTransfer.files[0]?.name ?? null); runUpload(); }}
           >
             <UploadIcon width={30} height={30} stroke="#2C6DAE" strokeWidth={1.7} />
-            <p className="t-h2" style={{ margin: "12px 0 5px" }}>에듀파인에서 받은 파일을 여기에 놓으세요</p>
-            <p className="t-cap">HWP · PDF · DOCX · XLSX · CSV · ZIP · 파일당 20MB · 최대 30개</p>
+            <p className="t-h2" style={{ margin: "12px 0 5px" }}>{isNewDutyFlow ? "PDF 파일을 여기로 끌어다 놓기" : "에듀파인에서 받은 파일을 여기에 놓으세요"}</p>
+            <p className="t-cap">{isNewDutyFlow ? "PDF · 내가 추가한 자료" : "HWP · PDF · DOCX · XLSX · CSV · ZIP · 파일당 20MB · 최대 30개"}</p>
             <button className="btn btn-primary btn-sm" style={{ marginTop: 16 }} onClick={runUpload}>
               파일 선택
             </button>
@@ -118,15 +130,15 @@ export function UploadModal({ onClose }: { onClose: () => void }) {
           <div className="prog" style={{ margin: "10px 0 14px" }}>
             <span className="bar"><i style={{ width: `${pct}%` }} /></span>
           </div>
-          {MOCK_FILES.map((f, i) => (
+          {files.map((f, i) => (
             <div className="frow" key={f.name}>
               <span className="fic"><FileIcon /></span>
               <span>
                 <span className="fn">{f.name}</span>
                 <span className="fm">{f.size}</span>
               </span>
-              <span className={`chip ${step >= 5 ? (i === 2 ? "warn" : "ok") : ""}`}>
-                {step >= 5 ? (i === 2 ? "검토 필요" : "완료") : step >= 1 ? "처리 중" : "대기"}
+              <span className={`chip ${step >= 5 ? (isNewDutyFlow ? "ok" : i === 2 ? "warn" : "ok") : ""}`}>
+                {step >= 5 ? (isNewDutyFlow ? "추가 완료" : i === 2 ? "검토 필요" : "완료") : step >= 1 ? "처리 중" : "대기"}
               </span>
             </div>
           ))}
@@ -135,7 +147,7 @@ export function UploadModal({ onClose }: { onClose: () => void }) {
             <>
               <div className="divider" />
               <div style={{ display: "flex", gap: 9, alignItems: "center", marginBottom: 14 }}>
-                <span className="t-h2">AI 분석 초안</span>
+                <span className="t-h2">{isNewDutyFlow ? "학생맞춤통합지원 업무를 정리했어요" : "AI 분석 초안"}</span>
                 <span className="chip warn">승인 전 초안</span>
               </div>
               <div className="draft">
@@ -147,12 +159,9 @@ export function UploadModal({ onClose }: { onClose: () => void }) {
                 <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
                   <button
                     className="btn btn-primary btn-sm"
-                    onClick={() => {
-                      onClose();
-                      toast("초안 검토를 완료했습니다");
-                    }}
-                  >
-                    업무로 등록
+                  onClick={() => { if (isNewDutyFlow) finishNewDuty(); else { onClose(); toast("초안 검토를 완료했습니다"); } }}
+                >
+                    {isNewDutyFlow ? "업무 감 잡기" : "업무로 등록"}
                   </button>
                   <button className="btn btn-quiet btn-sm">수정</button>
                   <button className="btn btn-quiet btn-sm">제외</button>

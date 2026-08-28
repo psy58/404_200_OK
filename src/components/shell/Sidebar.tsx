@@ -1,5 +1,5 @@
 import { Link, NavLink } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQueries } from "@tanstack/react-query";
 import { useAssignment } from "@/state/AssignmentContext";
 import { useOverlay } from "@/state/OverlayContext";
 import { getTasks } from "@/services/tasksService";
@@ -13,35 +13,40 @@ import {
   NotesNavIcon,
   ChevronRightIcon,
 } from "@/lib/icons";
-import gamLockup from "@/assets/brand/gam-lockup-dark.png";
+import gamWordmark from "@/assets/brand/gam-wordmark-white.png";
+import gamPersimmon from "@/assets/brand/gam-persimmon-green.png";
 
 export function Sidebar({ collapsed, onNavigate, onToggleCollapse }: { collapsed: boolean; onNavigate?: () => void; onToggleCollapse: () => void }) {
-  const { school, activeAssignment } = useAssignment();
+  const { school, selectedAssignments, selectedAssignmentIds } = useAssignment();
   const { open } = useOverlay();
-  const tasksQuery = useQuery({
-    queryKey: qk.tasks(activeAssignment?.id ?? ""),
-    queryFn: ({ signal }) => getTasks(activeAssignment?.id ?? "", signal),
-    enabled: !!activeAssignment,
+  const tasksQueries = useQueries({
+    queries: selectedAssignmentIds.map((assignmentId) => ({
+      queryKey: qk.tasks(assignmentId),
+      queryFn: ({ signal }: { signal: AbortSignal }) => getTasks(assignmentId, signal),
+    })),
   });
-  const urgentCount = tasksQuery.data?.filter((t) => t.status === "in_progress" && daysUntil(t.officialDueDate) <= 10).length ?? 0;
+  const selectedTaskCount = selectedAssignments.reduce((count, assignment) => count + assignment.taskCount, 0);
+  const urgentCount = tasksQueries.flatMap((query) => query.data ?? []).filter((task) => task.status === "in_progress" && daysUntil(task.officialDueDate) <= 10).length;
 
   return (
     <aside className="side">
       <Link className="brand" to="/" aria-label="GAM 홈으로 이동">
-        <img src={gamLockup} alt="GAM · Get A Map" className="brand-lockup" />
-        <span className="brand-mark" aria-hidden="true">G</span>
+        <img src={gamWordmark} alt="GAM" className="brand-lockup" />
+        <span className="brand-mark"><img src={gamPersimmon} alt="GAM 감 아이콘" /></span>
       </Link>
 
       <div className="ctx">
         <span className="lab">담당 업무</span>
         <span className="row">
-          <span className="nm">{activeAssignment?.name ?? "선택 필요"}</span>
+          <span className="nm">
+            {selectedAssignments.length ? selectedAssignments.map((assignment) => <span key={assignment.id}>{assignment.name}</span>) : "선택 필요"}
+          </span>
           <button className="chg" onClick={() => open("assign")}>
             변경
           </button>
         </span>
         <span className="mt">
-          {school ? `${school.name} · ${school.academicYear}학년도` : " "} · 업무 {activeAssignment?.taskCount ?? 0}개
+          {school ? `${school.name} · ${school.academicYear}학년도` : " "} · 업무 {selectedTaskCount}개
         </span>
       </div>
 
