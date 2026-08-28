@@ -292,3 +292,48 @@ def test_created_task_survives_a_restart(client, tmp_path) -> None:
 
 def test_empty_title_is_rejected(client) -> None:
     assert client.post("/api/frontend/tasks", json={"title": ""}).status_code == 422
+
+
+# --- 직접 추가한 담당 업무 ------------------------------------------------------
+
+
+def test_created_assignment_appears_with_its_tasks(client) -> None:
+    """담당 업무를 추가하면 목록에 나오고, 그 아래 업무 카드가 달린다.
+
+    예전 화면 흐름은 특정 이름(학맞통)이 아니면 아무 일도 없이 끝났다.
+    """
+    duty = client.post(
+        "/api/frontend/assignments",
+        json={"name": "환경교육 담당", "active_from": "2026-09-01", "note": "9월부터 담당"},
+    ).json()
+    assert duty["id"].startswith("duty_")
+    assert duty["status"] == "proposed_by_school"  # 분장표가 아니라 직접 등록
+    assert duty["task_count"] == 0
+
+    task = client.post(
+        "/api/frontend/tasks",
+        json={"title": "환경교육 주간 운영", "assignment_id": duty["id"]},
+    ).json()
+    assert task["assignment_id"] == duty["id"]
+
+    listed = client.get("/api/frontend/assignments").json()["items"]
+    row = next(a for a in listed if a["id"] == duty["id"])
+    assert row["task_count"] == 1
+    # 기본 담당(과학·정보)의 개수에는 섞이지 않는다
+    sci = next(a for a in listed if a["id"] == "sci")
+    assert all(
+        t["assignment_id"] == duty["id"]
+        for t in client.get("/api/frontend/tasks").json()["items"]
+        if t["id"] == task["id"]
+    )
+    assert sci["task_count"] >= 0
+
+
+def test_created_assignment_survives_restart(client, tmp_path) -> None:
+    duty = client.post("/api/frontend/assignments", json={"name": "지속 담당"}).json()
+    state_store.reset(tmp_path / "user_state.json")
+    assert any(a["id"] == duty["id"] for a in state_store.custom_assignments())
+
+
+def test_empty_assignment_name_is_rejected(client) -> None:
+    assert client.post("/api/frontend/assignments", json={"name": " "}).status_code == 422

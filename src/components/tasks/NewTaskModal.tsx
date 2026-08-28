@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Modal } from "@/components/ui/Modal";
 import { createTask } from "@/services/tasksService";
+import { useAssignment } from "@/state/AssignmentContext";
 import { useToast } from "@/state/ToastContext";
 
 /**
@@ -16,12 +17,16 @@ export function NewTaskModal({ onClose }: { onClose: () => void }) {
   const [memo, setMemo] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  // 지금 보고 있는 담당 업무 아래에 단다 (새로 추가한 담당 포함)
+  const { activeAssignmentId } = useAssignment();
 
   const mutation = useMutation({
-    mutationFn: () => createTask({ title, startDate, dueDate, memo }),
+    mutationFn: () =>
+      createTask({ title, assignmentId: activeAssignmentId ?? undefined, startDate, dueDate, memo }),
     onSuccess: (task) => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["assignments"] });
       onClose();
       toast(`"${task.title}" 업무를 추가했습니다`);
     },

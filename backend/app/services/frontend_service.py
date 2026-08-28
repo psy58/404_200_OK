@@ -138,22 +138,55 @@ def _source_type(node: dict) -> str:
 # --- assignments -------------------------------------------------------------
 
 
+def create_custom_assignment(
+    name: str, active_from: str | None = None, note: str | None = None
+) -> dto.Assignment:
+    """담당 업무(분장)를 직접 추가한다. 업무 카드는 이 아래에 달린다."""
+    saved = state_store.add_custom_assignment(
+        {
+            "name": name.strip(),
+            "active_from": active_from or _today().isoformat(),
+            "note": note,
+            "created_at": _today().isoformat(),
+        }
+    )
+    return _custom_assignment_dto(saved, task_count=0)
+
+
+def _custom_assignment_dto(record: dict, task_count: int) -> dto.Assignment:
+    return dto.Assignment(
+        id=record["id"],
+        name=record["name"],
+        active_from=record.get("active_from") or _today().isoformat(),
+        status="proposed_by_school",  # 서버 분장표가 아니라 담당자가 등록한 것
+        note=record.get("note") or "직접 추가한 담당 업무",
+        task_count=task_count,
+    )
+
+
 def assignments() -> dto.AssignmentsResponse:
     store = _store.ensure()
     year = _academic_year(_today())
-    return dto.AssignmentsResponse(
-        school=_school(),
-        items=[
-            dto.Assignment(
-                id=ASSIGNMENT_ID,
-                name="과학·정보",
-                active_from=f"{year}-03-01",
-                status="server_allowed",
-                note=f"작년 공문 {len(store.nodes):,}건에서 올해 업무를 자동 구성",
-                task_count=len(tasks().items),
-            )
-        ],
+    all_tasks = tasks().items
+    counts: dict[str, int] = {}
+    for task in all_tasks:
+        counts[task.assignment_id] = counts.get(task.assignment_id, 0) + 1
+
+    items = [
+        dto.Assignment(
+            id=ASSIGNMENT_ID,
+            name="과학·정보",
+            active_from=f"{year}-03-01",
+            status="server_allowed",
+            note=f"작년 공문 {len(store.nodes):,}건에서 올해 업무를 자동 구성",
+            task_count=counts.get(ASSIGNMENT_ID, 0),
+        )
+    ]
+    items.extend(
+        _custom_assignment_dto(record, counts.get(record["id"], 0))
+        for record in state_store.custom_assignments()
     )
+    return dto.AssignmentsResponse(school=_school(), items=items)
 
 
 # --- tasks -------------------------------------------------------------------
@@ -290,7 +323,7 @@ def _custom_to_task(record: dict) -> dto.Task:
     due = record.get("due_date") or start
     return dto.Task(
         id=record["id"],
-        assignment_id=ASSIGNMENT_ID,
+        assignment_id=record.get("assignment_id") or ASSIGNMENT_ID,
         title=record["title"],
         category=record.get("category") or "직접 추가",
         status=_custom_task_status(record, done, total),
@@ -312,6 +345,7 @@ def create_custom_task(
     due_date: str | None = None,
     category: str | None = None,
     memo: str | None = None,
+    assignment_id: str | None = None,
 ) -> dto.Task:
     saved = state_store.add_custom_task(
         {
@@ -320,6 +354,7 @@ def create_custom_task(
             "due_date": due_date,
             "category": category,
             "memo": memo,
+            "assignment_id": assignment_id or ASSIGNMENT_ID,
             "created_at": _today().isoformat(),
         }
     )

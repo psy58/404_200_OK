@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getAssignments } from "@/services/assignmentsService";
 import { qk } from "./queryKeys";
 import type { Assignment, School } from "@/domain/types";
@@ -15,7 +15,7 @@ interface AssignmentContextValue {
   selectedAssignmentIds: string[];
   selectedAssignments: Assignment[];
   setSelectedAssignmentIds: (ids: string[]) => void;
-  refreshCustomAssignments: () => void;
+  refreshCustomAssignments: (selectId?: string) => void;
   status: "loading" | "ready" | "error";
 }
 
@@ -32,6 +32,7 @@ function readSelectedIds(): string[] {
 
 export function AssignmentProvider({ children }: { children: ReactNode }) {
   const query = useQuery({ queryKey: qk.assignments(), queryFn: ({ signal }) => getAssignments(signal) });
+  const queryClient = useQueryClient();
   const [savedSelectedIds, setSavedSelectedIds] = useState<string[]>(readSelectedIds);
   const [customRevision, setCustomRevision] = useState(0);
   const assignments = useMemo(() => [...(query.data?.items ?? []).filter((assignment) => !assignment.note?.includes("신규 업무")), ...readCustomDuties()], [customRevision, query.data]);
@@ -56,9 +57,12 @@ export function AssignmentProvider({ children }: { children: ReactNode }) {
       selectedAssignmentIds,
       selectedAssignments,
       setSelectedAssignmentIds: setSavedSelectedIds,
-      refreshCustomAssignments: () => {
+      refreshCustomAssignments: (selectId?: string) => {
         setCustomRevision((revision) => revision + 1);
-        setSavedSelectedIds((ids) => ids.includes(HAKMATONG_ID) ? ids : [...ids, HAKMATONG_ID]);
+        // 서버에 추가된 담당 업무(duty_*)도 목록에 바로 반영한다
+        queryClient.invalidateQueries({ queryKey: qk.assignments() });
+        const target = selectId ?? HAKMATONG_ID;
+        setSavedSelectedIds((ids) => (ids.includes(target) ? ids : [...ids, target]));
       },
       status: query.isPending ? "loading" : query.isError ? "error" : "ready",
     };

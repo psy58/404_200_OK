@@ -23,6 +23,7 @@ export async function getTaskDetail(taskId: string, signal?: AbortSignal): Promi
 /** 업무 카드 직접 추가 — 백엔드 data/user_state.json 에 남는다. */
 export async function createTask(input: {
   title: string;
+  assignmentId?: string;
   startDate?: string;
   dueDate?: string;
   memo?: string;
@@ -31,6 +32,7 @@ export async function createTask(input: {
     "/api/frontend/tasks",
     {
       title: input.title,
+      assignment_id: input.assignmentId || null,
       start_date: input.startDate || null,
       due_date: input.dueDate || null,
       memo: input.memo || null,

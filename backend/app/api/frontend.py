@@ -107,6 +107,17 @@ def get_task_detail_alias(task_id: str) -> dto.TaskDetail:
 
 
 @router.post(
+    "/assignments",
+    response_model=dto.Assignment,
+    summary="담당 업무(분장) 직접 추가 — data/user_state.json 에 남는다",
+)
+def create_assignment(request: dto.AssignmentCreateRequest) -> dto.Assignment:
+    return frontend_service.create_custom_assignment(
+        name=request.name, active_from=request.active_from, note=request.note
+    )
+
+
+@router.post(
     "/tasks",
     response_model=dto.Task,
     summary="업무 카드 직접 추가 — data/user_state.json 에 남는다",
@@ -118,6 +129,7 @@ def create_task(request: dto.TaskCreateRequest) -> dto.Task:
         due_date=request.due_date,
         category=request.category,
         memo=request.memo,
+        assignment_id=request.assignment_id,
     )
 
 

@@ -11,7 +11,7 @@ ContractIssue 로 죽는다. 필드 이름·필수 여부·enum 값을 그쪽 �
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 # --- 담당 업무(assignment) ---------------------------------------------------
 
@@ -175,8 +175,26 @@ class NotificationsResponse(BaseModel):
 # --- 저장(변경) 요청·응답 ------------------------------------------------------
 
 
+class AssignmentCreateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=60)
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def _strip_name(cls, value):
+        # 공백만 있는 이름이 min_length 를 통과하지 못하게 먼저 다듬는다
+        return value.strip() if isinstance(value, str) else value
+    active_from: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    note: str | None = Field(default=None, max_length=100)
+
+
 class TaskCreateRequest(BaseModel):
     title: str = Field(min_length=1, max_length=120)
+
+    @field_validator("title", mode="before")
+    @classmethod
+    def _strip_title(cls, value):
+        return value.strip() if isinstance(value, str) else value
+    assignment_id: str | None = Field(default=None, max_length=40)
     start_date: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
     due_date: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
     category: str | None = Field(default=None, max_length=20)

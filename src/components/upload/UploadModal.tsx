@@ -4,6 +4,7 @@ import { getUploads, uploadDocument } from "@/services/uploadsService";
 import { useToast } from "@/state/ToastContext";
 import { useAssignment } from "@/state/AssignmentContext";
 import { clearDraft, createHakmatongDuty, readDraft } from "@/state/hakmatongDemo";
+import { createAssignment } from "@/services/assignmentsService";
 import { InfoIcon, FileIcon, UploadIcon } from "@/lib/icons";
 import type { RawUploadRecord } from "@/domain/raw-schemas";
 
@@ -32,11 +33,29 @@ export function UploadModal({ onClose }: { onClose: () => void }) {
   const { refreshCustomAssignments } = useAssignment();
   const draft = readDraft();
   const isNewDutyFlow = !!draft;
-  const finishNewDuty = () => {
-    if (draft && createHakmatongDuty(draft)) refreshCustomAssignments();
+  const finishNewDuty = async () => {
+    if (!draft) return;
+    // 학맞통 리허설 데모는 그대로 두고, 그 밖의 이름은 전부 백엔드에 실제로 만든다.
+    // 예전엔 학맞통이 아니면 아무 일도 없이 끝났다 — 그래서 "추가해도 안 나오던" 것.
+    if (createHakmatongDuty(draft)) {
+      refreshCustomAssignments();
+    } else {
+      try {
+        const month = String(draft.assignedMonth).padStart(2, "0");
+        const duty = await createAssignment({
+          name: draft.name,
+          activeFrom: `${draft.assignedYear}-${month}-01`,
+          note: `${draft.assignedMonth}월부터 새로 담당`,
+        });
+        refreshCustomAssignments(duty.id);
+      } catch (error) {
+        toast((error as Error).message);
+        return;
+      }
+    }
     clearDraft();
     onClose();
-    toast(`${draft?.name ?? "새"} 업무를 추가했습니다`);
+    toast(`${draft.name} 업무를 추가했습니다. 업무 카드는 "새 업무 추가"로 만들 수 있어요.`);
   };
 
   async function run(files: File[]) {
