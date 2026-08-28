@@ -69,6 +69,7 @@ export function HomePage() {
           </p>
         </div>
         <div style={{ display: "flex", gap: 9 }}>
+          <button className="btn btn-quiet" onClick={() => open("new-assignment")}>새 업무 추가</button>
           <Link className="btn btn-quiet" to="/map">
             연간 지도 열기
           </Link>

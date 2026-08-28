@@ -212,6 +212,7 @@ export interface EvidenceVM {
   readonly state: EvidenceState;
   readonly rationale: string;
   readonly originalAvailable: boolean;
+  readonly url?: string;
 }
 
 export interface ExperienceNoteVM {
@@ -363,11 +364,12 @@ export interface NotificationCenterVM {
 }
 
 export interface CitationVM {
-  readonly claimStart: number;
-  readonly claimEnd: number;
+  readonly claimStart: number | null;
+  readonly claimEnd: number | null;
   readonly evidenceId: string;
   readonly documentId: string;
   readonly page: string | null;
+  readonly title?: string;
 }
 
 export interface AssistantVM {
@@ -463,11 +465,20 @@ export interface AssistantQuery extends IdempotentMutation {
   readonly question: string;
 }
 
+export interface TaskCreateMutation extends IdempotentMutation {
+  readonly title: string;
+  readonly startDate?: string;
+  readonly dueDate?: string;
+  readonly category?: string;
+  readonly memo?: string;
+}
+
 /**
  * Capability interface only. A real implementation must bind every capability
  * to a confirmed OpenAPI operationId before it can issue network requests.
  */
 export interface FrontendApiService {
+  readonly contractStatus: ContractStatus;
   getSession(options?: { readonly signal?: AbortSignal }): Promise<SessionContextVM>;
   setActiveAssignment(assignmentId: string, mutation: VersionedMutation): Promise<SessionContextVM>;
   getHome(context: RequestContext, options?: { readonly signal?: AbortSignal }): Promise<HomeVM>;
@@ -493,5 +504,6 @@ export interface FrontendApiService {
   reviewAnalysisDraft(context: RequestContext, mutation: AnalysisDraftReview): Promise<UploadAnalysisVM>;
   deleteAnalysisItem(context: RequestContext, mutation: AnalysisJobMutation & { readonly itemId: string }): Promise<UploadAnalysisVM>;
   queryAssistant(context: RequestContext, request: AssistantQuery): Promise<AssistantVM>;
+  createTask(context: RequestContext, mutation: TaskCreateMutation): Promise<TaskSummaryVM>;
   logout(options?: { readonly signal?: AbortSignal }): Promise<void>;
 }

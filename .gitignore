@@ -28,3 +28,13 @@
 
 # 로컬 디자인 참고 이미지
 /KakaoTalk_Image_*.png
+
+# 백엔드 Python 로컬 환경과 캐시
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# 변환·색인 결과와 개인정보 포함 원본
+/backend/data/
+/업무목록/

@@ -12,9 +12,10 @@
  * Verification: tests/api/service-factory.test.js; mock is explicit,
  *               session-only and forbidden in production.
  */
-import { createFrontendApiService, ServiceModeError } from "@/api/service-factory.js";
+import { createFrontendApiService } from "@/api/service-factory.js";
 import type { FrontendApiService } from "@/api/ui-api-boundary-v2";
 import { createPreviewApi } from "./mockApiFactory";
+import { createBackendApi } from "@/api/backend-api";
 
 let servicePromise: Promise<FrontendApiService> | undefined;
 
@@ -24,10 +25,7 @@ function runtimeEnvironment(): "development" | "test" | "production" {
 }
 
 function createRealApi(): FrontendApiService {
-  throw new ServiceModeError(
-    "BACKEND_CONTRACT_REQUIRED",
-    "확정된 서비스 OpenAPI revision과 operationId mapping이 없어 실제 API 요청을 시작하지 않았습니다.",
-  );
+  return createBackendApi();
 }
 
 export function getFrontendApiService(): Promise<FrontendApiService> {

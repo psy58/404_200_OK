@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>업무 네비게이터</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <header class="top">
+      <h1>업무 네비게이터</h1>
+      <p class="subtitle">학교 업무를 물어보면 다음 할 일과 근거 문서를 찾아 드립니다</p>
+    </header>
+
+    <main class="layout">
+      <aside class="side">
+        <h2>등록된 업무</h2>
+        <ul id="workflow-list" class="workflow-list">
+          <li class="muted">불러오는 중…</li>
+        </ul>
+      </aside>
+
+      <section class="main">
+        <form id="ask-form" class="ask">
+          <textarea
+            id="question"
+            rows="2"
+            placeholder="예) 외부 강사비 지출할 때 필요한 서류가 뭔가요?"
+            autofocus
+          ></textarea>
+          <div class="ask-row">
+            <span id="scope" class="scope"></span>
+            <button type="submit" id="ask-button">질문하기</button>
+          </div>
+        </form>
+
+        <div id="examples" class="examples">
+          <span>예시</span>
+          <button type="button">과학대회 참가하려면 뭐부터 해야 하나요?</button>
+          <button type="button">외부 강사비 지출할 때 필요한 서류가 뭔가요?</button>
+          <button type="button">과학중점학교 지정서는 어디에 제출하나요?</button>
+        </div>
+
+        <div id="status" class="status" hidden></div>
+
+        <article id="answer" class="answer" hidden>
+          <p id="message" class="message"></p>
+
+          <section id="workflow-box" class="workflow-box" hidden>
+            <div class="workflow-head">
+              <h3 id="workflow-name"></h3>
+              <button type="button" id="feedback-toggle" class="link">
+                실제 업무와 다른가요?
+              </button>
+            </div>
+            <ol id="steps" class="steps"></ol>
+
+            <form id="feedback-form" class="feedback" hidden>
+              <select id="feedback-type">
+                <option value="missing_step">빠진 단계가 있습니다</option>
+                <option value="unnecessary_step">필요 없는 단계가 있습니다</option>
+                <option value="wrong_order">순서가 다릅니다</option>
+                <option value="wrong_document">문서가 맞지 않습니다</option>
+                <option value="other">그 밖의 의견</option>
+              </select>
+              <input
+                id="feedback-description"
+                type="text"
+                placeholder="실제로 어떻게 하셨는지 적어 주세요"
+              />
+              <button type="submit">보내기</button>
+            </form>
+            <div id="feedback-result" class="feedback-result" hidden></div>
+          </section>
+
+          <section id="actions-box" class="actions-box" hidden>
+            <h3>다음에 할 일</h3>
+            <ul id="actions"></ul>
+          </section>
+
+          <section id="timeline-box" class="timeline-box" hidden>
+            <h3>이 업무의 진행 흐름</h3>
+            <ol id="timeline" class="timeline"></ol>
+          </section>
+
+          <section id="documents-box" class="documents-box" hidden>
+            <h3>근거 문서</h3>
+            <ul id="documents"></ul>
+          </section>
+        </article>
+      </section>
+    </main>
+
+    <div id="viewer" class="viewer" hidden>
+      <div class="viewer-panel">
+        <div class="viewer-head">
+          <div>
+            <h3 id="viewer-title"></h3>
+            <p id="viewer-meta" class="muted"></p>
+          </div>
+          <button type="button" id="viewer-close" aria-label="닫기">✕</button>
+        </div>
+        <pre id="viewer-body" class="viewer-body"></pre>
+        <div class="viewer-nav">
+          <button type="button" id="viewer-prev">← 앞 문단</button>
+          <button type="button" id="viewer-next">뒤 문단 →</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

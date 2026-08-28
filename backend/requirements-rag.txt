@@ -1,0 +1,12 @@
+# 3단계(요약·임베딩·검색) 전용 의존성.
+#   .venv/Scripts/python.exe -m pip install -r requirements-rag.txt
+
+# OpenAI 임베딩과 요약 (langchain-openai가 openai 클라이언트를 함께 끌고 온다)
+langchain-openai>=0.2
+
+# 벡터 저장소. 로컬 파일에 저장하고 메타데이터로 걸러 검색한다.
+langchain-chroma>=0.2
+chromadb>=1.0
+
+# 토큰 수·요금 계산
+tiktoken>=0.8

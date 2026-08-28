@@ -8,10 +8,22 @@ export async function prepareUpload(context: RequestContext, files: readonly Fil
   }));
   return runApiRequest(requestScope(["upload-prepare", context.sessionEpoch, context.assignmentId]), signal, async (requestSignal) => {
     const api = await getFrontendApiService();
-    return api.prepareUpload(context, {
+    const prepared = await api.prepareUpload(context, {
       files: candidates,
       idempotencyKey: createIdempotencyKey("upload-prepare"),
       signal: requestSignal,
     });
+    if (!prepared.jobId || prepared.status === "disabled") return prepared;
+    let latest = prepared;
+    for (let index = 0; index < files.length; index += 1) {
+      latest = await api.transferUploadFile(context, {
+        uploadId: prepared.jobId,
+        clientFileId: candidates[index].clientId,
+        body: files[index],
+        idempotencyKey: createIdempotencyKey("upload-transfer"),
+        signal: requestSignal,
+      });
+    }
+    return latest;
   });
 }

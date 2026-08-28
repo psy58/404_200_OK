@@ -11,7 +11,7 @@ const ROUTE_SHORTCUTS: Record<string, string> = { h: "/home", m: "/map", d: "/do
 
 // Upload/analysis, notifications and AI stay out of the initial shell bundle.
 const AssignmentModal = lazy(() => import("./AssignmentModal").then((module) => ({ default: module.AssignmentModal })));
-const NewAssignmentModal = lazy(() => import("./NewAssignmentModal").then((module) => ({ default: module.NewAssignmentModal })));
+const NewTaskModal = lazy(() => import("@/components/tasks/NewTaskModal").then((module) => ({ default: module.NewTaskModal })));
 const NotificationPanel = lazy(() => import("./NotificationPanel").then((module) => ({ default: module.NotificationPanel })));
 const AssistantPanel = lazy(() => import("./AssistantPanel").then((module) => ({ default: module.AssistantPanel })));
 const UploadModal = lazy(() => import("@/components/upload/UploadModal").then((module) => ({ default: module.UploadModal })));
@@ -99,7 +99,7 @@ export function AppShell() {
 
       <Suspense fallback={<span className="sr" role="status">기능 화면을 준비하는 중입니다.</span>}>
         {overlay?.kind === "assign" && <AssignmentModal onClose={close} />}
-        {overlay?.kind === "new-assignment" && <NewAssignmentModal onClose={close} onNext={() => open("upload")} />}
+        {overlay?.kind === "new-assignment" && <NewTaskModal onClose={close} />}
         {overlay?.kind === "notifications" && <NotificationPanel onClose={close} />}
         {overlay?.kind === "assistant" && <AssistantPanel taskId={overlay.taskId} onClose={close} />}
         {overlay?.kind === "upload" && <UploadModal onClose={close} />}

@@ -1,8 +1,8 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { Panel } from "@/components/ui/Panel";
 import { QueryBoundary } from "@/components/ui/QueryBoundary";
-import { getNotifications } from "@/services/notificationsService";
+import { getNotifications, markAllNotificationsRead, markNotificationRead } from "@/services/notificationsService";
 import { useAssignment } from "@/state/AssignmentContext";
 import { qk } from "@/state/queryKeys";
 import { AlertIcon, InfoIcon } from "@/lib/icons";
@@ -27,11 +27,21 @@ const KIND_FG: Record<NotificationKind, string> = {
 /** P1 notification UI, fail-closed until persistence/authz operations exist. */
 export function NotificationPanel({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { context } = useAssignment();
   const query = useQuery({
     queryKey: context ? qk.notifications(context) : ["notifications", "disabled"],
     queryFn: ({ signal }) => getNotifications(context!, signal),
     enabled: !!context,
+  });
+  const readMutation = useMutation({
+    mutationFn: (notificationId: string | "all") => {
+      if (!context) throw new Error("담당 업무 맥락을 확인해 주세요.");
+      return notificationId === "all" ? markAllNotificationsRead(context) : markNotificationRead(context, notificationId);
+    },
+    onSuccess: (result) => {
+      if (context) queryClient.setQueryData(qk.notifications(context), result);
+    },
   });
 
   return (
@@ -39,7 +49,7 @@ export function NotificationPanel({ onClose }: { onClose: () => void }) {
       titleId="notif-panel-title"
       title="알림"
       onClose={onClose}
-      footer={<button className="btn btn-quiet" onClick={onClose}>닫기</button>}
+      footer={<><button className="btn btn-quiet" onClick={onClose}>닫기</button><button className="btn btn-primary" disabled={!context || !query.data?.unread || readMutation.isPending} onClick={() => readMutation.mutate("all")}>모두 읽음</button></>}
     >
       <QueryBoundary query={query}>
         {(result) => (
@@ -58,6 +68,7 @@ export function NotificationPanel({ onClose }: { onClose: () => void }) {
                 key={item.id}
                 className={`notif${item.isNew ? " new" : ""}`}
                 onClick={() => {
+                  if (item.isNew) readMutation.mutate(item.id);
                   if (item.relatedTaskId) {
                     navigate(`/tasks/${item.relatedTaskId}`, { state: taskNavigationState("/home", "알림") });
                     onClose();

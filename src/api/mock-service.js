@@ -613,6 +613,18 @@ export async function createMockApi(options = {}) {
       });
     },
 
+    async createTask(context, mutation = {}) {
+      await wait(latencyMs, mutation.signal);
+      authorize(context);
+      throw new MockApiError(Object.freeze({
+        code: "BACKEND_REQUIRED",
+        title: "실제 저장 백엔드가 필요합니다",
+        userMessage: "목업 모드에서는 새 업무를 저장 완료로 표시하지 않습니다.",
+        retryable: false,
+        recoveryAction: "none",
+      }), 501);
+    },
+
     /** @param {SignalOptions} [options] */
     async logout(options = {}) {
       const { signal } = options;

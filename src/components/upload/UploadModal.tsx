@@ -8,7 +8,7 @@ import { InfoIcon, FileIcon, UploadIcon } from "@/lib/icons";
 
 const STEPS = ["선택", "업로드", "안전 확인", "내용 읽기", "분석", "검토"] as const;
 
-/** MVP P0 upload UI wired to the V2 gate; no client-side fake success. */
+/** Actual multipart upload wired through the V2 runtime boundary; background processing remains explicit. */
 export function UploadModal({ onClose }: { onClose: () => void }) {
   const { context } = useAssignment();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -60,16 +60,16 @@ export function UploadModal({ onClose }: { onClose: () => void }) {
       >
         <UploadIcon width={30} height={30} stroke="#2C6DAE" strokeWidth={1.7} />
         <p className="t-h2" style={{ margin: "12px 0 5px" }}>에듀파인에서 받은 파일을 여기에 놓으세요</p>
-        <p className="t-cap">HWP · PDF · DOCX · XLSX · CSV · ZIP · 서버 정책은 계약 확정 후 적용</p>
+        <p className="t-cap">HWP · PDF · DOCX · XLSX · CSV · ZIP · 업로드 후 서버에서 변환·분석합니다</p>
         <button className="btn btn-primary btn-sm" style={{ marginTop: 16 }} onClick={() => inputRef.current?.click()} disabled={mutation.isPending}>
-          {mutation.isPending ? "계약 확인 중…" : "파일 선택"}
+          {mutation.isPending ? "서버로 전송 중…" : "파일 선택"}
         </button>
       </div>
       {files.map((file) => (
         <div className="frow" key={`${file.name}:${file.lastModified}`}>
           <span className="fic"><FileIcon /></span>
           <span><span className="fn">{file.name}</span><span className="fm">{Math.ceil(file.size / 1024).toLocaleString()} KB</span></span>
-          <span className="chip">{result?.status === "disabled" ? "전송 안 함" : mutation.isPending ? "확인 중" : "선택됨"}</span>
+          <span className="chip">{result?.status === "disabled" ? "전송 안 함" : mutation.isPending ? "전송 중" : result?.state === "failed" ? "처리 실패" : result ? "서버 접수·처리 중" : "선택됨"}</span>
         </div>
       ))}
       {(issue || mutation.isError) && (

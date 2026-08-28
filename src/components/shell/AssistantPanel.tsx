@@ -1,76 +1,84 @@
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Panel } from "@/components/ui/Panel";
-import { Chip } from "@/components/ui/Chip";
-import { SourceTag } from "@/components/ui/SourceTag";
 import { getTasks } from "@/services/tasksService";
+import { askAssistant } from "@/services/assistantService";
 import { useAssignment } from "@/state/AssignmentContext";
 import { qk } from "@/state/queryKeys";
 import { InfoIcon } from "@/lib/icons";
-import { daysUntil, formatFull, formatShort } from "@/lib/dates";
-import type { TaskInstance } from "@/domain/types";
+import { formatFull } from "@/lib/dates";
+import { getSafeErrorMessage } from "@/services/errorPresentation";
 
-type AiGamMode = "overview" | "document" | "compare" | "draft" | "question";
-
-const QUICK_ACTIONS: Array<{ mode: Exclude<AiGamMode, "question">; label: string }> = [
-  { mode: "overview", label: "업무 감 잡기" },
-  { mode: "document", label: "공문 읽기" },
-  { mode: "compare", label: "작년과 비교" },
-  { mode: "draft", label: "초안 만들기" },
-];
-
-function buildAnswer(mode: AiGamMode, task?: TaskInstance, question?: string) {
-  const due = task ? formatFull(task.officialDueDate) : "현재 업무의 공식 마감일";
-  const previous = task ? formatShort(task.previousActualDate) : "전년도 처리 기록";
-  const start = task ? formatShort(task.recommendedStartDate) : "권장 준비 시점";
-  const title = task?.title ?? "현재 업무";
-  const remaining = task ? daysUntil(task.officialDueDate) : null;
-
-  if (mode === "document") return { heading: "AI 감이 해야 할 일만 정리했어요 🍊", summary: `${title}와 관련된 공문·매뉴얼을 기준으로 확인할 항목입니다.`, sections: [{ title: "확인할 일", content: "담당 항목을 대조하고, 제출 전 검토 일정을 확보하세요." }, { title: "공식 마감", content: due }, { title: "관련 자료", content: "현재 공문과 업무 매뉴얼은 근거 연결에서 확인할 수 있습니다." }] };
-  if (mode === "compare") return { heading: "AI 감이 작년 기록과 비교했어요 🍊", summary: "최신 공식 지침을 우선으로 확인하세요.", sections: [{ title: "올해 확인할 점", content: `공식 마감은 ${due}입니다.` }, { title: "작년 우리 학교", content: `실제 처리는 ${previous}에 기록되어 있습니다.` }, { title: "확인 필요", content: "전년도 양식과 올해 공문이 다르면 올해 공문 기준으로 진행하세요." }] };
-  if (mode === "draft") return { heading: "AI 감이 초안 준비를 도와드려요 🍊", summary: "아래 항목을 바탕으로 필요한 문서 초안을 만들 수 있습니다.", sections: [{ title: "먼저 정할 것", content: "기안문, 안내문, 체크리스트, 계획서 중 만들 문서를 선택하세요." }, { title: "반영할 정보", content: `공식 마감 ${due}, 전년도 처리 ${previous}` }, { title: "검토", content: "AI가 생성한 초안은 최종 제출 전 담당자가 확인해야 합니다." }] };
-  if (mode === "question") return { heading: "AI 감이 정리했어요 🍊", summary: question || "현재 업무를 기준으로 정리했습니다.", sections: [{ title: "지금 할 일", content: `권장 준비 시점은 ${start}입니다. 현재 필요한 자료와 담당 항목을 먼저 확인하세요.` }, { title: "언제까지", content: remaining === null ? due : `${due} · ${remaining}일 남음` }, { title: "작년에는", content: `${previous}에 실제 처리 기록이 있습니다.` }] };
-  return { heading: "AI 감이 업무 흐름을 정리했어요 🍊", summary: task?.rationale || `${title}의 일정과 근거를 함께 확인하세요.`, sections: [{ title: "지금 할 일", content: `권장 준비 시작일은 ${start}입니다.` }, { title: "공식 마감", content: due }, { title: "작년 우리 학교", content: `${previous}에 실제 처리했습니다.` }] };
-}
+const QUICK_ACTIONS = [
+  { label: "업무 감 잡기", question: "이 업무에서 지금 먼저 해야 할 일을 근거와 함께 알려줘." },
+  { label: "공문 읽기", question: "이 업무와 관련된 공문에서 꼭 확인할 내용을 정리해줘." },
+  { label: "작년과 비교", question: "이 업무를 작년에는 어떤 순서로 처리했는지 알려줘." },
+  { label: "초안 만들기", question: "이 업무를 진행하기 위한 체크리스트 초안을 근거와 함께 제안해줘." },
+] as const;
 
 export function AssistantPanel({ taskId, onClose }: { taskId?: string; onClose: () => void }) {
   const { context } = useAssignment();
-  const [mode, setMode] = useState<AiGamMode | null>(null);
   const [question, setQuestion] = useState("");
   const tasksQuery = useQuery({
     queryKey: context ? qk.tasks(context) : ["tasks", "disabled"],
     queryFn: ({ signal }) => getTasks(context!, signal),
     enabled: !!context,
   });
-  const task = tasksQuery.data?.find((t) => t.id === taskId) ?? tasksQuery.data?.[0];
-  const answer = mode ? buildAnswer(mode, task, question) : null;
+  const task = tasksQuery.data?.find((item) => item.id === taskId) ?? tasksQuery.data?.[0];
+  const mutation = useMutation({
+    mutationFn: (input: string) => {
+      if (!context || !task) throw new Error("질문할 업무 맥락을 확인해 주세요.");
+      return askAssistant(context, input, task.id);
+    },
+  });
 
   useEffect(() => {
-    setMode(null);
     setQuestion("");
+    mutation.reset();
+    // mutation identity is intentionally excluded; reset only when task changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [taskId]);
 
-  function askQuestion() { if (question.trim()) setMode("question"); }
+  function submit(input: string) {
+    const normalized = input.trim();
+    if (normalized && !mutation.isPending) mutation.mutate(normalized);
+  }
 
   return (
     <Panel titleId="ai-gam-panel-title" title="AI 감" onClose={onClose} footer={
-      <form className="ai-question" onSubmit={(event) => { event.preventDefault(); askQuestion(); }}>
+      <form className="ai-question" onSubmit={(event) => { event.preventDefault(); submit(question); }}>
         <input value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="이 업무에서 궁금한 점을 물어보세요." aria-label="AI 감에게 질문하기" />
-        <button className="btn ai-submit" type="submit" disabled={!question.trim()}>묻기</button>
+        <button className="btn ai-submit" type="submit" disabled={!question.trim() || !task || mutation.isPending}>{mutation.isPending ? "확인 중" : "묻기"}</button>
       </form>
     }>
       <div className="ai-gam-panel">
-        <p className="ai-gam-lead">지금 보고 있는 업무를 기준으로 도와드려요.</p>
+        <p className="ai-gam-lead">현재 업무의 실제 백엔드 문서 범위에서 답을 확인합니다.</p>
         {task && <div className="ai-context"><span>현재 업무</span><strong>{task.title}</strong><small>{task.category} · 공식 마감 {formatFull(task.officialDueDate)}</small></div>}
         <div className="ai-actions" aria-label="AI 감 빠른 질문">
-          {QUICK_ACTIONS.map((action) => <button key={action.mode} type="button" className="ai-action" aria-pressed={mode === action.mode} onClick={() => setMode(action.mode)}>{action.label}</button>)}
+          {QUICK_ACTIONS.map((action) => <button key={action.label} type="button" className="ai-action" disabled={!task || mutation.isPending} onClick={() => { setQuestion(action.question); submit(action.question); }}>{action.label}</button>)}
         </div>
-        {answer ? <section className="ai-answer" aria-live="polite">
-          <span className="ai-answer-label">AI 감</span><h3>{answer.heading}</h3><p className="ai-answer-summary">{answer.summary}</p>
-          <div className="ai-answer-sections">{answer.sections.map((section) => <div key={section.title}><strong>{section.title}</strong><p>{section.content}</p></div>)}</div>
-          <div className="ai-sources" aria-label="답변 근거"><span>근거</span><SourceTag type="official" /><SourceTag type="school_case" /><Chip tone="gam">선생님들의 감</Chip></div>
-        </section> : <div className="ai-suggestions"><span>이렇게 물어보세요</span><button type="button" onClick={() => { setQuestion("지금 내가 해야 할 게 뭐야?"); setMode("question"); }}>지금 내가 해야 할 게 뭐야?</button><button type="button" onClick={() => { setQuestion("작년이랑 달라진 점 알려줘"); setMode("question"); }}>작년이랑 달라진 점 알려줘</button><button type="button" onClick={() => { setQuestion("다른 선생님들은 어떻게 했어?"); setMode("question"); }}>다른 선생님들은 어떻게 했어?</button></div>}
-        <div className="notice info ai-disclaimer"><InfoIcon /><span>AI 감은 근거를 정리·비교합니다. <strong>최종 판단은 담당자가 합니다.</strong></span></div>
+
+        {mutation.isPending && <div className="ai-suggestions" role="status"><span>백엔드에서 근거 문서를 확인하고 있습니다…</span></div>}
+        {mutation.isError && <div className="notice" role="alert"><InfoIcon /><span><strong>답변을 가져오지 못했습니다.</strong> {getSafeErrorMessage(mutation.error)}</span></div>}
+        {mutation.data && (
+          <section className="ai-answer" aria-live="polite">
+            <span className="ai-answer-label">AI 감 · 실 API</span>
+            <h3>{mutation.data.grounding === "grounded" ? "근거 문서를 함께 확인했어요" : "확인 가능한 근거가 부족합니다"}</h3>
+            <p className="ai-answer-summary">{mutation.data.answer}</p>
+            {mutation.data.citations.length > 0 && (
+              <div className="ai-answer-sections" aria-label="답변 근거">
+                {mutation.data.citations.map((citation) => (
+                  <div key={`${citation.documentId}:${citation.evidenceId}`}>
+                    <strong>{citation.title ?? citation.documentId}</strong>
+                    <p>{citation.page ? `${citation.page}쪽` : "페이지 정보 없음"} · 문서 ID {citation.documentId}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+        {!mutation.data && !mutation.isPending && !mutation.isError && <div className="ai-suggestions"><span>위의 빠른 질문을 고르거나 직접 물어보세요.</span></div>}
+        <div className="notice info ai-disclaimer"><InfoIcon /><span>개인정보를 입력하지 마세요. 외부 AI 사용은 서버의 명시적 허용 없이는 차단되며, <strong>최종 판단은 담당자가 합니다.</strong></span></div>
       </div>
     </Panel>
   );

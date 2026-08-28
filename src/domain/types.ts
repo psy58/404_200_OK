@@ -97,6 +97,7 @@ export interface ChecklistItem {
 }
 
 export interface EvidenceLink {
+  url?: string;
   level: string;
   title: string;
   detail: string;
@@ -180,4 +181,28 @@ export interface UiIssue {
   supportId?: string;
   retryAfter?: string;
   recoveryAction?: "retry" | "reauthenticate" | "go-to-list" | "request-access" | "reload-latest" | "reapply" | "clear-filters" | "contact-support" | "none";
+}
+
+/** F14 업무 도우미 답변 — 항상 근거 문서와 함께 온다. */
+export interface AssistantSource {
+  documentId: string;
+  chunkId: string | null;
+  title: string;
+  page: number | null;
+  snippet: string | null;
+  relevance: number;
+}
+
+export interface AssistantTimelineEntry {
+  title: string;
+  date: string | null;
+  kind: string;
+  audience: string | null;
+}
+
+export interface AssistantAnswer {
+  queryId: string;
+  message: string;
+  sources: AssistantSource[];
+  timeline: AssistantTimelineEntry[];
 }
