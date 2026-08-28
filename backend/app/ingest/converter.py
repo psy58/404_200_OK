@@ -28,6 +28,7 @@ from markitdown import MarkItDown, StreamInfo
 
 from . import frontmatter, metadata
 from .hwp_com import HancomSession, HancomUnavailable
+from . import privacy
 from .hwp_converter import HwpConverter
 
 SKIP_DIRECTORIES = {".git", "__pycache__", ".venv"}
@@ -158,7 +159,12 @@ def convert_one(markitdown: MarkItDown, source: Path) -> str:
                 filename=source.name,
             ),
         )
-    return result.markdown or ""
+    # 주민번호는 md 가 되기 전에 지운다. 여기가 일괄 변환과 업로드가 모두
+    # 지나는 단일 관문이다.
+    masked, count = privacy.mask_rrns(result.markdown or "")
+    if count:
+        print(f"[변환] {source.name}: 주민등록번호 {count}건 마스킹")
+    return masked
 
 
 def long_path(path: Path) -> str:
