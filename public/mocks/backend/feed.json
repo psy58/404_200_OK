@@ -1,0 +1,7 @@
+{
+  "items": [
+    { "id": "f1", "title": "AI 교육주간 운영 협조 요청", "issuer": "한빛교육지원청", "received_at": "2026-08-19", "hint": "운영계획 수립 후 9월 2일까지 제출", "related_task_id": "t2" },
+    { "id": "f2", "title": "2학기 정보공시 입력 안내", "issuer": "교육부", "received_at": "2026-08-14", "hint": "8월 31일까지 입력 마감", "related_task_id": "t1" },
+    { "id": "f3", "title": "디지털기기 관리 실태 점검 안내", "issuer": "경기도교육청", "received_at": "2026-08-22", "hint": "9월 중 전수 점검 실시", "related_task_id": "t3" }
+  ]
+}
