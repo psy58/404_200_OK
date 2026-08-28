@@ -79,6 +79,9 @@ class EvidenceLink(BaseModel):
     title: str
     detail: str
     source_type: SourceType
+    # law.go.kr 같은 바깥 링크. zod 는 .optional() 이므로 값이 없으면
+    # 키를 아예 빼서 보낸다 (task-details 라우트의 exclude_none).
+    url: str | None = None
 
 
 class TimelineEvent(BaseModel):

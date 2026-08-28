@@ -112,6 +112,9 @@ export const RawEvidenceLinkSchema = z.object({
   title: z.string(),
   detail: z.string(),
   source_type: RawSourceTypeSchema,
+  // 근거 법령의 law.go.kr 한글주소처럼 바깥으로 여는 링크.
+  // optional: 백엔드는 값이 없으면 키를 아예 보내지 않는다 (null 아님).
+  url: z.string().optional(),
 });
 
 export const RawTimelineEventSchema = z.object({

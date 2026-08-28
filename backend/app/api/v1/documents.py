@@ -4,7 +4,8 @@ from fastapi import APIRouter, Query
 
 from ...models.common import ErrorResponse
 from ...models.document import ChunkDetail, DocumentDetail
-from ...services import document_service
+from ...models.statute import DocumentStatutesResponse, StatuteCitation
+from ...services import document_service, statute_service
 
 router = APIRouter()
 
@@ -35,3 +36,20 @@ def get_document(
 )
 def get_chunk(document_id: str, chunk_id: str) -> ChunkDetail:
     return document_service.get_chunk(document_id, chunk_id)
+
+
+@router.get(
+    "/documents/{document_id}/statutes",
+    response_model=DocumentStatutesResponse,
+    summary="이 문서가 인용한 근거 법령 (law.go.kr 링크 포함)",
+)
+def get_document_statutes(document_id: str) -> DocumentStatutesResponse:
+    """문서가 없어도 404가 아니라 빈 목록이다.
+
+    법령 인용이 없는 문서가 대부분(1,088건 중 66건만 인용)이라, 없는 것과
+    문서가 없는 것을 구분해 프론트를 번거롭게 하지 않는다.
+    """
+    return DocumentStatutesResponse(
+        document_id=document_id,
+        items=[StatuteCitation(**c) for c in statute_service.citations_for(document_id)],
+    )

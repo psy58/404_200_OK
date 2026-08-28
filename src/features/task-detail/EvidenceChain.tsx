@@ -2,7 +2,11 @@ import { SourceTag } from "@/components/ui/SourceTag";
 import { InfoIcon } from "@/lib/icons";
 import type { EvidenceLink } from "@/domain/types";
 
-/** F05 관련 공문·근거 연결: 공문 → 매뉴얼 → 법령/학교사례 체인. */
+/**
+ * F05 관련 공문·근거 연결: 공문 → 매뉴얼 → 법령/학교사례 체인.
+ * 근거 법령 항목에는 국가법령정보센터(law.go.kr) 한글주소가 url 로 오며,
+ * 그때는 제목이 새 탭으로 여는 링크가 된다.
+ */
 export function EvidenceChain({ chain, guidelineChangeNotice }: { chain: EvidenceLink[]; guidelineChangeNotice?: string }) {
   return (
     <section className="card card-pad">
@@ -19,7 +23,13 @@ export function EvidenceChain({ chain, guidelineChangeNotice }: { chain: Evidenc
           {chain.map((c, i) => (
             <div className={`chain-i${c.sourceType === "school_case" ? " src-school" : ""}`} key={i}>
               <span className="cl">{c.level}</span>
-              <span className="cn">{c.title}</span>
+              {c.url ? (
+                <a className="cn" href={c.url} target="_blank" rel="noreferrer" style={{ textDecoration: "underline" }}>
+                  {c.title} ↗
+                </a>
+              ) : (
+                <span className="cn">{c.title}</span>
+              )}
               <span className="cd">{c.detail}</span>
               <span style={{ display: "inline-flex", marginTop: 8 }}>
                 <SourceTag type={c.sourceType} />

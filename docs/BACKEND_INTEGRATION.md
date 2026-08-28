@@ -50,6 +50,19 @@ python -m venv .venv
 | 알림 읽음 영속화 | 미구현 |
 | 업로드 | 미구현 |
 
+## 근거 법령 (공문 → 매뉴얼 → 법령 연결)
+
+공문 본문의 「법령」 인용을 뽑아 국가법령정보센터(law.go.kr) 한글주소로 잇는다.
+법령 77종 중 66종은 한글주소 실존을 확인했고, 나머지는 통합검색 링크다
+(개정·폐지된 옛 이름). 대장은 `docs/STATUTES.md`.
+
+- 업무 상세의 `evidence_chain` 에 `level: "근거 법령"` 항목으로 실려 온다.
+  이 항목에는 `url`(optional)이 있고, EvidenceChain 이 새 탭 링크로 그린다.
+- 문서별 조회: `GET /api/v1/documents/{id}/statutes` (인용 없으면 빈 목록)
+- 대장 전체: `GET /api/v1/statutes`
+- 재생성: `python scripts/build_statutes.py --verify` (법령 이름만 조회하며,
+  문서 본문은 어디에도 보내지 않는다)
+
 ## AI 질의 (업무 도우미 패널 활성화용)
 
 ```

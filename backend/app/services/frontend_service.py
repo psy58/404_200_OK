@@ -21,6 +21,7 @@ from ..errors import not_found
 from ..ingest import relations
 from ..models import frontend as dto
 from ..rag import doctype, timeline
+from . import statute_service
 
 ASSIGNMENT_ID = "sci"  # 이 말뭉치는 전부 과학·정보 담당 문서다
 SCHOOL = dto.School(id="sch_seg", name="숭의여자고등학교", academic_year=2025)
@@ -30,6 +31,7 @@ FEED_LIMIT = 12
 DOCUMENT_LIMIT = 60
 NOTIFICATION_LIMIT = 8
 EVIDENCE_LIMIT = 8
+STATUTE_LIMIT = 5  # 근거 사슬에 붙일 법령 수
 
 _TEMPLATE_CATEGORY = {
     "public_call": "공모 사업",
@@ -245,6 +247,24 @@ def task_detail(task_id: str) -> dto.TaskDetail:
         )
         for _, node, step_name in documents[:EVIDENCE_LIMIT]
     ]
+
+    # 사슬의 마지막 고리 — 이 업무의 공문들이 인용한 근거 법령.
+    # 화면 제목이 "공문 → 매뉴얼 → 법령 연결"인데 법령 칸이 비어 있었다.
+    citations = statute_service.citations_for_documents(
+        [document_id for document_id, _, _ in documents], limit=STATUTE_LIMIT
+    )
+    for citation in citations:
+        verified = citation.get("verified")
+        evidence.append(
+            dto.EvidenceLink(
+                level="근거 법령",
+                title=citation["display"],
+                detail=citation.get("category", "법령")
+                + (" · law.go.kr 확인됨" if verified else " · 검색으로 연결"),
+                source_type="official",
+                url=citation["url"],
+            )
+        )
 
     previous = [
         dto.TimelineEvent(date=_event_date(node) or "", event=node.get("title") or "")

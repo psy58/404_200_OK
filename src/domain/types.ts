@@ -91,6 +91,7 @@ export interface ChecklistItem {
 }
 
 export interface EvidenceLink {
+  url?: string;
   level: string;
   title: string;
   detail: string;

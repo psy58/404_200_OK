@@ -109,7 +109,7 @@ function adaptChecklistItem(raw: RawTaskDetail["checklist"][number]): ChecklistI
   return { id: raw.id, text: raw.text, note: raw.note, done: raw.done };
 }
 function adaptEvidenceLink(raw: RawTaskDetail["evidence_chain"][number]): EvidenceLink {
-  return { level: raw.level, title: raw.title, detail: raw.detail, sourceType: raw.source_type };
+  return { level: raw.level, title: raw.title, detail: raw.detail, sourceType: raw.source_type, url: raw.url };
 }
 function adaptTimelineEvent(raw: RawTaskDetail["previous_timeline"][number]): TimelineEvent {
   return { date: raw.date, event: raw.event };
