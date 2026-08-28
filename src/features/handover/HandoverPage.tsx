@@ -53,8 +53,8 @@ export function HandoverPage() {
           <button className="btn btn-quiet" onClick={() => open("review")}>
             메모 검토 모드
           </button>
-          <button className="btn btn-primary" disabled>
-            내보내기 (백엔드 연결 전)
+          <button className="btn btn-primary" disabled title="내보내기 기능은 준비 중입니다">
+            내보내기
           </button>
         </div>
       </div>

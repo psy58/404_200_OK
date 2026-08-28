@@ -47,7 +47,7 @@ export function UploadModal({ onClose }: { onClose: () => void }) {
     <Modal
       titleId="upload-modal-title"
       wide
-      eyebrow="MVP P0 · 파일 업로드·분석"
+      eyebrow="파일 업로드·분석"
       title="문서 업로드·분석"
       description="분석 결과는 사람이 승인하기 전까지 초안이며, 자동으로 확정 업무가 되지 않습니다."
       onClose={onClose}

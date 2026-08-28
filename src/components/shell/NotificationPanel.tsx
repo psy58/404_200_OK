@@ -52,8 +52,7 @@ export function NotificationPanel({ onClose }: { onClose: () => void }) {
       <div className="notice" style={{ margin: "14px 24px" }}>
         <InfoIcon />
         <span>
-          알림은 P1 실기능입니다. 현재 화면은 <strong>시연 데이터</strong>이며 실제 발송·읽음 처리·중복 방지는 백엔드
-          연결 후 동작합니다.
+          지금 보이는 알림은 <strong>예시 데이터</strong>입니다. 읽음 처리와 실시간 알림 기능은 준비 중입니다.
         </span>
       </div>
       <QueryBoundary

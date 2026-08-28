@@ -77,7 +77,7 @@ export function AssistantPanel({ taskId, onClose }: { taskId?: string; onClose: 
           <InfoIcon />
           <span>
             도우미는 문서를 정리하고 제안합니다. <strong>판단과 승인은 담당자가 합니다.</strong> 답변에는 항상 사용한
-            근거 문서가 함께 표시됩니다. 실제 응답은 백엔드 계약(F14, P2)이 확정된 뒤 연결됩니다.
+            근거 문서가 함께 표시됩니다. 질문 기능은 준비 중입니다.
           </span>
         </div>
       </div>

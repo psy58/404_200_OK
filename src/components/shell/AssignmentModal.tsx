@@ -2,13 +2,9 @@ import { useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { useAssignment } from "@/state/AssignmentContext";
 import { useToast } from "@/state/ToastContext";
-import { CheckIcon, InfoIcon } from "@/lib/icons";
+import { CheckIcon } from "@/lib/icons";
 
-/**
- * F01 담당 업무 선택. Only server-allowed assignments are selectable;
- * "업무 등록 제안" is intentionally disabled because no backend contract
- * exists yet to accept a school-proposed task — see docs/01 §8.2.
- */
+/** F01 담당 업무 선택. 서버가 허용한 업무분장 중에서만 고를 수 있다. */
 export function AssignmentModal({ onClose }: { onClose: () => void }) {
   const { assignments, activeAssignmentId, setActiveAssignmentId, school } = useAssignment();
   const [pending, setPending] = useState(activeAssignmentId);
@@ -19,13 +15,9 @@ export function AssignmentModal({ onClose }: { onClose: () => void }) {
       titleId="assign-modal-title"
       eyebrow={school ? `${school.name} · ${school.academicYear}학년도` : undefined}
       title="담당 업무 선택"
-      description="서버가 허용한 업무분장만 표시됩니다. 선택은 작업 맥락을 바꾸는 것이며 권한을 부여하지 않습니다."
       onClose={onClose}
       footer={
         <>
-          <button className="btn btn-quiet" disabled>
-            업무 등록 제안
-          </button>
           <button className="btn btn-quiet" onClick={onClose}>
             취소
           </button>
@@ -59,13 +51,6 @@ export function AssignmentModal({ onClose }: { onClose: () => void }) {
             </span>
           </button>
         ))}
-      </div>
-      <div className="notice info" style={{ marginTop: 18 }}>
-        <InfoIcon />
-        <span>
-          목록에 없는 업무를 맡으셨나요? 담당 업무 추가는 권한 상승이 아니라 <strong>학교 자체 업무 등록·제안</strong>으로
-          진행됩니다. 현재 배포에서는 백엔드 계약이 없어 비활성 상태입니다.
-        </span>
       </div>
     </Modal>
   );

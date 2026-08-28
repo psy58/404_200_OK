@@ -132,7 +132,7 @@ export function TaskDetailPage() {
                       <span className="fn">{f.title}</span>
                       <span className="fm">{f.meta}</span>
                     </span>
-                    <button className="btn btn-quiet btn-sm" disabled title="원문 연결은 백엔드 계약 필요">
+                    <button className="btn btn-quiet btn-sm" disabled title="원문 보기는 준비 중입니다">
                       열기
                     </button>
                   </div>
