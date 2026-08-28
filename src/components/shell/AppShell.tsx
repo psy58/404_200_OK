@@ -65,10 +65,11 @@ export function AppShell() {
 
   return (
     <div className="app">
+      <a className="skip-link" href="#view" onClick={() => document.getElementById("view")?.focus()}>본문으로 건너뛰기</a>
       <div className="side-scrim" onClick={() => setNavOpen(false)} />
       <Sidebar onNavigate={() => setNavOpen(false)} />
       <div className="main">
-        <Topbar onToggleNav={() => setNavOpen((v) => !v)} />
+        <Topbar navOpen={navOpen} onToggleNav={() => setNavOpen((value) => !value)} />
         <main className="view" id="view" tabIndex={-1}>
           {status === "loading" || status === "switching" ? (
             <LoadingBlock label={status === "switching" ? "담당 업무를 전환하는 중" : "학교와 담당 업무를 확인하는 중"} />

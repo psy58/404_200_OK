@@ -14,7 +14,7 @@ export async function updateChecklistItem(
       ...input,
       idempotencyKey: createIdempotencyKey("checklist-update"),
       signal,
-    }));
+    }), context);
     if (!detail) throw new Error("체크리스트 응답에 업무 정보가 없습니다.");
     return detail;
   });

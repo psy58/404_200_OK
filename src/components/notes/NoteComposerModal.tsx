@@ -50,7 +50,7 @@ export function NoteComposerModal({ taskId, onClose }: { taskId?: string; onClos
       onClose();
       toast("경험 메모를 세션 경계에 저장했습니다");
     },
-    onError: () => toast("메모를 저장하지 못했습니다. 작성 내용은 유지됩니다."),
+    onError: () => toast("메모를 저장하지 못했습니다. 작성 내용은 유지됩니다.", "error"),
   });
 
   return (

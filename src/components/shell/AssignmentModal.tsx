@@ -41,7 +41,7 @@ export function AssignmentModal({ onClose }: { onClose: () => void }) {
                 onClose();
                 toast("담당 업무를 전환했습니다");
               } catch {
-                toast("담당 업무를 전환하지 못했습니다. 입력과 기존 화면은 유지됩니다.");
+                toast("담당 업무를 전환하지 못했습니다. 입력과 기존 화면은 유지됩니다.", "error");
               } finally {
                 setSaving(false);
               }

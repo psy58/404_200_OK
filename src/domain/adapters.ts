@@ -126,16 +126,26 @@ function adaptEvidence(vm: EvidenceVM) {
   return {
     level: vm.source === "official" ? "공식 근거" : "학교사례",
     title: vm.title,
-    detail: [vm.documentNumber, vm.pageRange, vm.versionLabel].filter(Boolean).join(" · ") || vm.rationale,
+    detail: vm.rationale,
     sourceType: vm.source === "school-case" ? "school_case" as const : "official" as const,
+    documentNumber: vm.documentNumber,
+    issuer: vm.issuer,
+    issuedAt: vm.issuedAt,
+    pageRange: vm.pageRange,
+    versionLabel: vm.versionLabel,
+    verifiedAt: vm.verifiedAt,
+    verifiedBy: vm.verifiedBy,
+    verificationState: vm.state === "review-required" ? "review-required" as const : vm.state,
+    originalAvailable: vm.originalAvailable,
   };
 }
 
-export function adaptTaskDetail(vm: TaskDetailVM): TaskDetail | null {
+export function adaptTaskDetail(vm: TaskDetailVM, context: RequestContext): TaskDetail | null {
   if (!vm.task) return null;
   const staleEvidence = vm.evidence.find((item) => item.state !== "verified");
   return {
     taskId: vm.task.id,
+    task: adaptTask(vm.task, context),
     version: vm.task.version,
     checklist: vm.checklist.map((item) => ({
       id: item.id,

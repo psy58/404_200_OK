@@ -101,6 +101,15 @@ export interface EvidenceLink {
   title: string;
   detail: string;
   sourceType: Exclude<SourceType, "experience">;
+  documentNumber: string | null;
+  issuer: string | null;
+  issuedAt: string | null;
+  pageRange: string | null;
+  versionLabel: string | null;
+  verifiedAt: string | null;
+  verifiedBy: string | null;
+  verificationState: "verified" | "review-required" | "stale" | "conflicted" | "missing";
+  originalAvailable: boolean;
 }
 
 export interface TimelineEvent {
@@ -116,6 +125,7 @@ export interface FormRef {
 
 export interface TaskDetail {
   taskId: string;
+  task: TaskInstance;
   version: number;
   checklist: ChecklistItem[];
   evidenceChain: EvidenceLink[];
@@ -143,19 +153,31 @@ export interface HandoverPreview {
 
 /** Common screen state per docs/03 §8.2, §11 — every P0 screen implements this. */
 export type ViewStatus =
+  | "idle"
   | "loading"
   | "ready"
   | "empty"
   | "no-result"
+  | "partial"
+  | "stale"
   | "unauthorized"
   | "forbidden"
   | "not-found"
-  | "server-error";
+  | "conflict"
+  | "validation-error"
+  | "rate-limited"
+  | "server-error"
+  | "offline"
+  | "disabled";
 
 /** Non-2xx failure shape a UI can render without leaking raw HTTP detail. */
 export interface UiIssue {
   code: string;
   title: string;
   userMessage: string;
+  fieldErrors?: readonly { field: string; message: string }[];
   retryable: boolean;
+  supportId?: string;
+  retryAfter?: string;
+  recoveryAction?: "retry" | "reauthenticate" | "go-to-list" | "request-access" | "reload-latest" | "reapply" | "clear-filters" | "contact-support" | "none";
 }

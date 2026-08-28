@@ -24,7 +24,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const urgentCount = tasksQuery.data?.filter((t) => t.status === "in_progress" && daysUntil(t.officialDueDate) <= 10).length ?? 0;
 
   return (
-    <aside className="side">
+    <aside className="side" id="primary-navigation">
       <div className="brand">
         <svg width="36" height="36" viewBox="0 0 100 100" aria-hidden="true">
           <path d="M50 33c22 0 36 12 36 26.5S72 88 50 88 14 74 14 59.5 28 33 50 33z" fill="#F4581C" />

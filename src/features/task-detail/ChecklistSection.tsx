@@ -5,40 +5,50 @@ import { useToast } from "@/state/ToastContext";
 import { qk } from "@/state/queryKeys";
 import { CheckIcon } from "@/lib/icons";
 import type { ChecklistItem, TaskDetail } from "@/domain/types";
+import type { MutationContextToken } from "@/api/mutation-context.js";
 
 interface ToggleInput { itemId: string; complete: boolean; expectedVersion: number }
+interface MutationSnapshot {
+  previous?: TaskDetail;
+  key: readonly unknown[];
+  token: MutationContextToken;
+}
 
 /** F07 optimistic update with version/idempotency and exact rollback. */
 export function ChecklistSection({ taskId, checklist }: { taskId: string; checklist: ChecklistItem[] }) {
   const queryClient = useQueryClient();
-  const { context } = useAssignment();
+  const { context, captureMutationContext, isMutationContextCurrent } = useAssignment();
   const { toast } = useToast();
   const done = checklist.filter((item) => item.done).length;
-  const key = context ? qk.taskDetail(context, taskId) : ["task-detail", "disabled", taskId];
 
-  const mutation = useMutation<TaskDetail, Error, ToggleInput, { previous?: TaskDetail }>({
+  const mutation = useMutation<TaskDetail, Error, ToggleInput, MutationSnapshot>({
     mutationFn: (input) => {
       if (!context) throw new Error("담당 업무 맥락을 확인해 주세요.");
       return updateChecklistItem(context, { taskId, ...input });
     },
     onMutate: async (input) => {
-      await queryClient.cancelQueries({ queryKey: key });
-      const previous = queryClient.getQueryData<TaskDetail>(key);
+      if (!context) throw new Error("담당 업무 맥락을 확인해 주세요.");
+      const mutationKey = qk.taskDetail(context, taskId);
+      const token = captureMutationContext(context, ["checklist", taskId]);
+      await queryClient.cancelQueries({ queryKey: mutationKey });
+      const previous = queryClient.getQueryData<TaskDetail>(mutationKey);
       if (previous) {
-        queryClient.setQueryData<TaskDetail>(key, {
+        queryClient.setQueryData<TaskDetail>(mutationKey, {
           ...previous,
           checklist: previous.checklist.map((item) => item.id === input.itemId ? { ...item, done: input.complete } : item),
         });
       }
-      return { previous };
+      return { previous, key: mutationKey, token };
     },
-    onSuccess: (saved) => {
-      queryClient.setQueryData(key, saved);
+    onSuccess: (saved, _input, snapshot) => {
+      if (!snapshot || !isMutationContextCurrent(snapshot.token)) return;
+      queryClient.setQueryData(snapshot.key, saved);
       if (context) queryClient.invalidateQueries({ queryKey: qk.tasks(context) });
     },
     onError: (_error, _input, rollback) => {
-      if (rollback?.previous) queryClient.setQueryData(key, rollback.previous);
-      toast("저장하지 못했습니다. 이전 상태로 되돌렸습니다.");
+      if (!rollback || !isMutationContextCurrent(rollback.token)) return;
+      if (rollback.previous) queryClient.setQueryData(rollback.key, rollback.previous);
+      toast("저장하지 못했습니다. 이전 상태로 되돌렸습니다.", "error");
     },
   });
 

@@ -1,4 +1,3 @@
-import { MockApiError } from "@/api/mock-service.js";
 import type { RequestContext } from "@/api/ui-api-boundary-v2";
 import { adaptTask, adaptTaskDetail } from "@/domain/adapters";
 import type { TaskDetail, TaskInstance } from "@/domain/types";
@@ -37,10 +36,10 @@ export async function getTaskDetail(context: RequestContext, taskId: string, sig
   try {
     return await runApiRequest(requestScope(["task", context.sessionEpoch, context.assignmentId, taskId]), signal, async (requestSignal) => {
       const api = await getFrontendApiService();
-      return adaptTaskDetail(await api.getTaskDetail(context, taskId, { signal: requestSignal }));
+      return adaptTaskDetail(await api.getTaskDetail(context, taskId, { signal: requestSignal }), context);
     });
   } catch (error) {
-    if (error instanceof MockApiError && error.status === 404) return null;
+    if (error instanceof Error && "status" in error && Number((error as Error & { status?: unknown }).status) === 404) return null;
     throw error;
   }
 }

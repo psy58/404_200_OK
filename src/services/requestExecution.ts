@@ -1,5 +1,7 @@
 import { createRequestCoordinator } from "@/api/request-coordinator.js";
 
+export { requestScope } from "@/api/request-scope.js";
+
 const coordinator = createRequestCoordinator();
 
 function combineSignals(first: AbortSignal, second?: AbortSignal) {
@@ -34,10 +36,6 @@ export async function runApiRequest<T>(
 
 export function cancelAllApiRequests(): void {
   coordinator.cancelAll();
-}
-
-export function requestScope(parts: readonly (string | number | undefined)[]): string {
-  return parts.filter((part) => part !== undefined).join(":");
 }
 
 export function createIdempotencyKey(operation: string): string {

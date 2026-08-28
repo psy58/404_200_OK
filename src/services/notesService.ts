@@ -1,4 +1,4 @@
-import type { RequestContext } from "@/api/ui-api-boundary-v2";
+import type { ExperienceNotesVM, FrontendApiService, RequestContext } from "@/api/ui-api-boundary-v2";
 import { adaptExperienceNote } from "@/domain/adapters";
 import type { ExperienceNote, NoteVisibility } from "@/domain/types";
 import { getFrontendApiService } from "./apiClient";
@@ -6,6 +6,18 @@ import { createIdempotencyKey, requestScope, runApiRequest } from "./requestExec
 
 function apiVisibility(visibility: NoteVisibility): "private" | "handover" | "school" {
   return visibility === "organization" ? "school" : visibility;
+}
+
+async function adaptNotesResult(
+  api: FrontendApiService,
+  context: RequestContext,
+  currentUserLabel: string,
+  result: ExperienceNotesVM,
+  signal: AbortSignal,
+): Promise<ExperienceNote[]> {
+  const home = await api.getHome(context, { signal });
+  const taskTitles = new Map([...home.urgent, ...home.thisMonth, ...home.nextThirtyDays].map((task) => [task.id, task.title]));
+  return result.items.map((note) => adaptExperienceNote(note, taskTitles, currentUserLabel));
 }
 
 export async function getExperienceNotes(context: RequestContext, currentUserLabel: string, signal?: AbortSignal): Promise<ExperienceNote[]> {
@@ -38,8 +50,44 @@ export async function createExperienceNote(
       idempotencyKey: createIdempotencyKey("experience-note-create"),
       signal: requestSignal,
     });
-    const home = await api.getHome(context, { signal: requestSignal });
-    const taskTitles = new Map([...home.urgent, ...home.thisMonth, ...home.nextThirtyDays].map((task) => [task.id, task.title]));
-    return result.items.map((note) => adaptExperienceNote(note, taskTitles, currentUserLabel));
+    return adaptNotesResult(api, context, currentUserLabel, result, requestSignal);
+  });
+}
+
+export async function updateExperienceNote(
+  context: RequestContext,
+  currentUserLabel: string,
+  input: { taskId: string; noteId: string; text: string; visibility: NoteVisibility; expectedVersion: number },
+  signal?: AbortSignal,
+): Promise<ExperienceNote[]> {
+  return runApiRequest(requestScope(["note-update", context.sessionEpoch, context.assignmentId, input.noteId]), signal, async (requestSignal) => {
+    const api = await getFrontendApiService();
+    const result = await api.updateExperienceNote(context, {
+      taskId: input.taskId,
+      noteId: input.noteId,
+      text: input.text.trim(),
+      visibility: apiVisibility(input.visibility),
+      expectedVersion: input.expectedVersion,
+      idempotencyKey: createIdempotencyKey("experience-note-update"),
+      signal: requestSignal,
+    });
+    return adaptNotesResult(api, context, currentUserLabel, result, requestSignal);
+  });
+}
+
+export async function deleteExperienceNote(
+  context: RequestContext,
+  currentUserLabel: string,
+  input: { taskId: string; noteId: string; expectedVersion: number },
+  signal?: AbortSignal,
+): Promise<ExperienceNote[]> {
+  return runApiRequest(requestScope(["note-delete", context.sessionEpoch, context.assignmentId, input.noteId]), signal, async (requestSignal) => {
+    const api = await getFrontendApiService();
+    const result = await api.deleteExperienceNote(context, {
+      ...input,
+      idempotencyKey: createIdempotencyKey("experience-note-delete"),
+      signal: requestSignal,
+    });
+    return adaptNotesResult(api, context, currentUserLabel, result, requestSignal);
   });
 }

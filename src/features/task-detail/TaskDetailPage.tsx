@@ -1,6 +1,6 @@
 import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { getTasks, getTaskDetail } from "@/services/tasksService";
+import { getTaskDetail } from "@/services/tasksService";
 import { getExperienceNotes } from "@/services/notesService";
 import { useAssignment } from "@/state/AssignmentContext";
 import { useOverlay } from "@/state/OverlayContext";
@@ -21,11 +21,6 @@ export function TaskDetailPage() {
   const { context, user } = useAssignment();
   const { open } = useOverlay();
 
-  const tasksQuery = useQuery({
-    queryKey: context ? qk.tasks(context) : ["tasks", "disabled"],
-    queryFn: ({ signal }) => getTasks(context!, signal),
-    enabled: !!context,
-  });
   const detailQuery = useQuery({
     queryKey: context ? qk.taskDetail(context, taskId) : ["task-detail", "disabled", taskId],
     queryFn: ({ signal }) => getTaskDetail(context!, taskId, signal),
@@ -37,12 +32,11 @@ export function TaskDetailPage() {
     enabled: !!context,
   });
 
-  if (tasksQuery.isPending || detailQuery.isPending) return <LoadingBlock label="업무 상세를 불러오는 중" />;
-  if (tasksQuery.isError) return <ErrorState description={getSafeErrorMessage(tasksQuery.error)} onRetry={() => tasksQuery.refetch()} />;
+  if (detailQuery.isPending) return <LoadingBlock label="업무 상세를 불러오는 중" />;
   if (detailQuery.isError) return <ErrorState description={getSafeErrorMessage(detailQuery.error)} onRetry={() => detailQuery.refetch()} />;
 
-  const task = tasksQuery.data.find((t) => t.id === taskId);
-  if (!task) {
+  const detail = detailQuery.data;
+  if (!detail) {
     return (
       <div className="stack">
         <Link className="btn btn-ghost btn-sm" to="/home" style={{ alignSelf: "flex-start", marginLeft: -10 }}>
@@ -57,7 +51,9 @@ export function TaskDetailPage() {
     );
   }
 
-  const detail = detailQuery.data;
+  // The dedicated detail response is the existence/summary source of truth;
+  // annual-only tasks must not depend on the narrower home-list union.
+  const task = detail.task;
   const taskNotes = (notesQuery.data ?? []).filter((n) => n.taskId === task.id);
 
   return (
@@ -110,13 +106,7 @@ export function TaskDetailPage() {
         </div>
       </section>
 
-      {!detail ? (
-        <EmptyState
-          title="이 업무의 상세 기록이 아직 없습니다"
-          description="체크리스트·근거·전년도 처리 사례는 문서 분석이 진행되면 채워집니다."
-        />
-      ) : (
-        <div className="two">
+      <div className="two">
           <div className="stack" style={{ gap: 22 }}>
             <ChecklistSection taskId={task.id} checklist={detail.checklist} />
             <EvidenceChain chain={detail.evidenceChain} guidelineChangeNotice={detail.guidelineChangeNotice} />
@@ -165,8 +155,7 @@ export function TaskDetailPage() {
               )}
             </section>
           </div>
-        </div>
-      )}
+      </div>
     </div>
   );
 }

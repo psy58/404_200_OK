@@ -3,7 +3,7 @@ import { useOverlay } from "@/state/OverlayContext";
 import { BellIcon, MenuIcon, UploadIcon } from "@/lib/icons";
 import { useAssignment } from "@/state/AssignmentContext";
 
-export function Topbar({ onToggleNav }: { onToggleNav: () => void }) {
+export function Topbar({ navOpen, onToggleNav }: { navOpen: boolean; onToggleNav: () => void }) {
   const { open } = useOverlay();
   const { user } = useAssignment();
   const now = new Intl.DateTimeFormat("ko-KR", { year: "numeric", month: "2-digit", day: "2-digit", weekday: "short" }).format(new Date());
@@ -11,7 +11,14 @@ export function Topbar({ onToggleNav }: { onToggleNav: () => void }) {
 
   return (
     <header className="topbar">
-      <button className="hamb" id="hamb" aria-label="메뉴 열기" onClick={onToggleNav}>
+      <button
+        className="hamb"
+        id="hamb"
+        aria-label={navOpen ? "메뉴 닫기" : "메뉴 열기"}
+        aria-expanded={navOpen}
+        aria-controls="primary-navigation"
+        onClick={onToggleNav}
+      >
         <MenuIcon />
       </button>
       <span className="date-now num">
