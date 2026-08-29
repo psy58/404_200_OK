@@ -13,6 +13,7 @@
 """
 
 import json
+import re
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -63,6 +64,60 @@ _TEMPLATE_CATEGORY = {
     "request_and_settle": "지출 처리",
     "notice_only": "안내 수신",
 }
+
+
+def _demo_payload(relative_path: str) -> dict | None:
+    """Docker demo에서만 기존 추적 fixture를 immutable seed로 읽는다."""
+    if not settings.DEMO_SEED_ENABLED:
+        return None
+    root = settings.DEMO_SEED_DIR.resolve()
+    candidate = (root / relative_path).resolve()
+    try:
+        candidate.relative_to(root)
+    except ValueError:
+        return None
+    if not candidate.is_file():
+        return None
+    try:
+        with open(candidate, encoding="utf-8") as stream:
+            payload = json.load(stream)
+        return payload if isinstance(payload, dict) else None
+    except (json.JSONDecodeError, OSError) as exc:
+        print(f"[frontend] demo seed {candidate}를 읽지 못했습니다: {exc}")
+        return None
+
+
+def _demo_task_detail(task_id: str) -> dto.TaskDetail | None:
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", task_id):
+        return None
+    payload = _demo_payload(f"task-details/{task_id}.json")
+    if payload is None:
+        return None
+    detail = dto.TaskDetail.model_validate(payload)
+    overlay = state_store.checklist_overlay(task_id)
+    if not overlay:
+        return detail
+    return detail.model_copy(
+        update={
+            "checklist": [
+                item.model_copy(update={"done": overlay.get(item.id, item.done)})
+                for item in detail.checklist
+            ]
+        }
+    )
+
+
+def _demo_task(record: dict) -> dto.Task:
+    task = dto.Task.model_validate(record)
+    detail = _demo_task_detail(task.id)
+    if detail is None:
+        return task
+    done = sum(1 for item in detail.checklist if item.done)
+    total = len(detail.checklist)
+    status = "complete" if total and done == total else "in_progress" if done else task.status
+    return task.model_copy(
+        update={"checklist_done": done, "checklist_total": total, "status": status}
+    )
 
 
 class _Store:
@@ -166,6 +221,22 @@ def _custom_assignment_dto(record: dict, task_count: int) -> dto.Assignment:
 
 def assignments() -> dto.AssignmentsResponse:
     store = _store.ensure()
+    demo = _demo_payload("assignments.json") if not store.workflows else None
+    if demo is not None:
+        seeded = dto.AssignmentsResponse.model_validate(demo)
+        counts: dict[str, int] = {}
+        for task in tasks().items:
+            counts[task.assignment_id] = counts.get(task.assignment_id, 0) + 1
+        items = [
+            item.model_copy(update={"task_count": counts.get(item.id, item.task_count)})
+            for item in seeded.items
+        ]
+        items.extend(
+            _custom_assignment_dto(record, counts.get(record["id"], 0))
+            for record in state_store.custom_assignments()
+        )
+        return dto.AssignmentsResponse(school=seeded.school, items=items)
+
     year = _academic_year(_today())
     all_tasks = tasks().items
     counts: dict[str, int] = {}
@@ -370,6 +441,13 @@ def tasks() -> dto.TasksResponse:
     store = _store.ensure()
     year = _academic_year(_today())
 
+    demo = _demo_payload("tasks.json") if not store.workflows else None
+    if demo is not None:
+        items = [_demo_task(record) for record in demo.get("items", [])]
+        items.extend(_custom_to_task(record) for record in state_store.custom_tasks())
+        items.sort(key=lambda task: task.recommended_start_date)
+        return dto.TasksResponse(items=items)
+
     items = []
     for by_year in _series(store).values():
         current, previous = by_year.get(year), by_year.get(year - 1)
@@ -494,6 +572,12 @@ def task_detail(task_id: str) -> dto.TaskDetail:
     if task_id.startswith(CUSTOM_PREFIX):
         return _custom_task_detail(task_id)
     store = _store.ensure()
+
+    if not store.workflows:
+        demo = _demo_task_detail(task_id)
+        if demo is not None:
+            return demo
+
     year = _academic_year(_today())
 
     projected = task_id.startswith(PROJECTED_PREFIX)
@@ -627,6 +711,10 @@ def _body_nodes(store: _Store) -> list[tuple[str, dict]]:
 
 def feed() -> dto.FeedResponse:
     store = _store.ensure()
+    demo = _demo_payload("feed.json") if not store.workflows else None
+    if demo is not None:
+        return dto.FeedResponse.model_validate(demo)
+
     received = [
         (document_id, node)
         for document_id, node in _body_nodes(store)
@@ -654,11 +742,16 @@ def feed() -> dto.FeedResponse:
 
 def documents() -> dto.DocumentsResponse:
     store = _store.ensure()
+    demo = _demo_payload("documents.json") if not store.workflows else None
+    if demo is not None:
+        items = list(dto.DocumentsResponse.model_validate(demo).items)
+    else:
+        items = []
+
     rows = sorted(
         _body_nodes(store), key=lambda row: _event_date(row[1]) or "", reverse=True
     )
 
-    items = []
     for document_id, node in rows[:DOCUMENT_LIMIT]:
         task = _current_task_of(store, document_id)
         items.append(
@@ -676,6 +769,24 @@ def documents() -> dto.DocumentsResponse:
                 # 사람 검증 절차는 아직 없다. 있다고 말하지 않는다.
                 verification_status="none",
             )
+        )
+
+    existing_ids = {item.id for item in items}
+    for document_id, document in document_store.uploaded():
+        if document_id in existing_ids:
+            continue
+        items.insert(
+            0,
+            dto.DocumentRow(
+                id=document_id,
+                title=document.get("title") or "(제목 없음)",
+                document_number=document.get("doc_number") or "-",
+                source_type="school_case",
+                related_task_title="업로드 문서",
+                issued_at=_today().isoformat(),
+                analysis_status="complete",
+                verification_status="none",
+            ),
         )
     return dto.DocumentsResponse(items=items)
 
@@ -697,9 +808,16 @@ def _note_dto(note: dict) -> dto.ExperienceNote:
 
 
 def experience_notes() -> dto.ExperienceNotesResponse:
-    """담당자가 저장한 경험 노트. 최근 것부터. 지어낸 노트는 없다."""
+    """담당자가 저장한 경험 노트와 명시적 demo seed. 최근 저장분부터."""
+    store = _store.ensure()
+    demo = _demo_payload("experience-notes.json") if not store.workflows else None
+    seeded = (
+        dto.ExperienceNotesResponse.model_validate(demo).items
+        if demo is not None
+        else []
+    )
     return dto.ExperienceNotesResponse(
-        items=[_note_dto(note) for note in reversed(state_store.notes())]
+        items=[_note_dto(note) for note in reversed(state_store.notes())] + list(seeded)
     )
 
 
@@ -725,6 +843,18 @@ def notifications() -> dto.NotificationsResponse:
     작년 이맘때 시작한 업무가 다가오거나 지났으면 알린다. 이것이 이 서비스가
     담당자에게 해 주는 핵심 말이다 — "작년엔 지금쯤 이걸 하고 있었다."
     """
+    store = _store.ensure()
+    demo = _demo_payload("notifications.json") if not store.workflows else None
+    if demo is not None:
+        seeded = dto.NotificationsResponse.model_validate(demo)
+        read = state_store.read_notification_ids()
+        return dto.NotificationsResponse(
+            items=[
+                item.model_copy(update={"is_new": item.is_new and item.id not in read})
+                for item in seeded.items
+            ]
+        )
+
     today = _today().isoformat()
     soon = (_today() + timedelta(days=30)).isoformat()
 

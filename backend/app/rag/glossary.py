@@ -276,7 +276,12 @@ def save(terms: list[Term], path: Path | None = None) -> Path:
 
 
 def load(path: Path | None = None) -> list[Term]:
+    requested_path = path
     path = path or settings.DATA_DIR / "glossary.json"
+    # 생성 산출물이 없는 새 설치에서도 문서화된 기본 용어는 사용할 수 있게 한다.
+    # 호출자가 경로를 명시한 경우에는 테스트/도구의 뜻을 존중해 대체하지 않는다.
+    if requested_path is None and not path.exists():
+        path = Path(__file__).with_name("glossary.seed.json")
     if not path.exists():
         return []
     try:

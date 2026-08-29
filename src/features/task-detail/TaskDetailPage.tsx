@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { getTasks, getTaskDetail } from "@/services/tasksService";
+import { getTaskDetail } from "@/services/tasksService";
 import { getExperienceNotes } from "@/services/notesService";
-import { useAssignment } from "@/state/AssignmentContext";
+import { useSelectedTasks } from "@/state/useSelectedTasks";
 import { useOverlay } from "@/state/OverlayContext";
 import { qk } from "@/state/queryKeys";
 import { LoadingBlock, ErrorState, EmptyState } from "@/components/ui/States";
@@ -24,7 +24,7 @@ export function TaskDetailPage() {
   const { taskId = "" } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const { activeAssignmentId } = useAssignment();
+  const { tasks, isPending: tasksPending, error: tasksError, refetch: refetchTasks } = useSelectedTasks();
   const { open } = useOverlay();
   const linkedCommunityIds = useCommunityLinks();
   const [showContextBar, setShowContextBar] = useState(false);
@@ -38,11 +38,6 @@ export function TaskDetailPage() {
     return () => window.removeEventListener("scroll", update);
   }, []);
 
-  const tasksQuery = useQuery({
-    queryKey: qk.tasks(activeAssignmentId ?? ""),
-    queryFn: ({ signal }) => getTasks(activeAssignmentId ?? "", signal),
-    enabled: !!activeAssignmentId,
-  });
   const detailQuery = useQuery({
     queryKey: qk.taskDetail(taskId),
     queryFn: ({ signal }) => getTaskDetail(taskId, signal),
@@ -50,11 +45,11 @@ export function TaskDetailPage() {
   });
   const notesQuery = useQuery({ queryKey: qk.notes(), queryFn: ({ signal }) => getExperienceNotes(signal) });
 
-  if (tasksQuery.isPending || detailQuery.isPending) return <LoadingBlock label="업무 상세를 불러오는 중" />;
-  if (tasksQuery.isError) return <ErrorState description={(tasksQuery.error as Error).message} onRetry={() => tasksQuery.refetch()} />;
+  if (tasksPending || detailQuery.isPending) return <LoadingBlock label="업무 상세를 불러오는 중" />;
+  if (tasksError) return <ErrorState description={tasksError.message} onRetry={refetchTasks} />;
   if (detailQuery.isError) return <ErrorState description={(detailQuery.error as Error).message} onRetry={() => detailQuery.refetch()} />;
 
-  const task = tasksQuery.data.find((t) => t.id === taskId);
+  const task = tasks.find((t) => t.id === taskId);
   if (!task) {
     return (
       <div className="stack">

@@ -3,19 +3,22 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getAssignments } from "@/services/assignmentsService";
 import { qk } from "./queryKeys";
 import type { Assignment, School } from "@/domain/types";
-import { HAKMATONG_ID, readCustomDuties } from "./hakmatongDemo";
+import { HAKMATONG_ID, readCustomDuties, removeCustomDuty } from "./hakmatongDemo";
 
 const SELECTED_DUTY_IDS_KEY = "gam-selected-duty-ids";
 
 interface AssignmentContextValue {
   school: School | null;
   assignments: Assignment[];
-  activeAssignmentId: string | null;
-  activeAssignment: Assignment | null;
+  /** 선택한 담당 업무 id (선택 순서). 업무 목록이 필요하면 useSelectedTasks() 를 쓴다. */
   selectedAssignmentIds: string[];
   selectedAssignments: Assignment[];
   setSelectedAssignmentIds: (ids: string[]) => void;
   refreshCustomAssignments: (selectId?: string) => void;
+  /** 직접 추가해 이 브라우저에만 있는 담당 업무 id — 삭제 버튼을 보여 줄 대상. */
+  customAssignmentIds: string[];
+  /** 직접 추가한 담당 업무를 지우고 선택 목록에서도 뺀다. 지웠으면 true. */
+  removeCustomAssignment: (id: string) => boolean;
   status: "loading" | "ready" | "error";
 }
 
@@ -56,8 +59,6 @@ export function AssignmentProvider({ children }: { children: ReactNode }) {
     return {
       school: query.data?.school ?? null,
       assignments,
-      activeAssignmentId: selectedAssignmentIds[0] ?? null,
-      activeAssignment: selectedAssignments[0] ?? null,
       selectedAssignmentIds,
       selectedAssignments,
       setSelectedAssignmentIds: setSavedSelectedIds,
@@ -68,9 +69,18 @@ export function AssignmentProvider({ children }: { children: ReactNode }) {
         const target = selectId ?? HAKMATONG_ID;
         setSavedSelectedIds((ids) => (ids.includes(target) ? ids : [...ids, target]));
       },
+      customAssignmentIds: customDuties.map((duty) => duty.id),
+      removeCustomAssignment: (id: string) => {
+        if (!removeCustomDuty(id)) return false;
+        setCustomRevision((revision) => revision + 1);
+        setSavedSelectedIds((ids) => ids.filter((selectedId) => selectedId !== id));
+        // 이 담당 업무의 업무 목록 캐시도 같이 버린다 (하드코딩 데모 업무가 남지 않게)
+        queryClient.removeQueries({ queryKey: qk.tasks(id) });
+        return true;
+      },
       status: query.isPending ? "loading" : query.isError ? "error" : "ready",
     };
-  }, [assignments, query.data, query.isError, query.isPending, queryClient, selectedAssignmentIds]);
+  }, [assignments, customDuties, query.data, query.isError, query.isPending, queryClient, selectedAssignmentIds]);
 
   return <AssignmentContext.Provider value={value}>{children}</AssignmentContext.Provider>;
 }

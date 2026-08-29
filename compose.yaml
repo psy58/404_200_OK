@@ -1,0 +1,54 @@
+name: aiteacher01-demo
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file:
+      - backend/.env
+    environment:
+      DEMO_SEED_ENABLED: "${DEMO_SEED_ENABLED:-true}"
+      MAX_UPLOAD_BYTES: "${MAX_UPLOAD_BYTES:-20971520}"
+    expose:
+      - "8000"
+    volumes:
+      - api-data:/app/backend/data
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - >-
+          import urllib.request;
+          response = urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3);
+          raise SystemExit(0 if response.status == 200 else 1)
+      interval: 15s
+      timeout: 5s
+      start_period: 20s
+      retries: 5
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${WEB_BIND_ADDRESS:-0.0.0.0}:${WEB_PORT:-8000}:80"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/health"]
+      interval: 15s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  api-data:

@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { getTasks } from "@/services/tasksService";
 import { getDocuments } from "@/services/documentsService";
 import { getExperienceNotes } from "@/services/notesService";
-import { useAssignment } from "@/state/AssignmentContext";
+import { useSelectedTasks } from "@/state/useSelectedTasks";
 import { qk } from "@/state/queryKeys";
 import { CloseIcon, SearchIcon } from "@/lib/icons";
 import { SourceTag } from "@/components/ui/SourceTag";
@@ -21,21 +20,16 @@ export function SearchBox() {
   const mobilePanelRef = useRef<HTMLDivElement>(null);
   const mobileInputRef = useRef<HTMLInputElement>(null);
   const mobileTriggerRef = useRef<HTMLButtonElement>(null);
-  const { activeAssignmentId } = useAssignment();
+  const { tasks: selectedTasks } = useSelectedTasks();
   useFocusTrap(mobilePanelRef, mobileOpen);
 
-  const tasksQuery = useQuery({
-    queryKey: qk.tasks(activeAssignmentId ?? ""),
-    queryFn: ({ signal }) => getTasks(activeAssignmentId ?? "", signal),
-    enabled: !!activeAssignmentId,
-  });
   const docsQuery = useQuery({ queryKey: qk.documents(), queryFn: ({ signal }) => getDocuments(signal) });
   const notesQuery = useQuery({ queryKey: qk.notes(), queryFn: ({ signal }) => getExperienceNotes(signal) });
 
   const trimmed = q.trim().toLowerCase();
   const results = useMemo(() => {
     if (!trimmed) return null;
-    const tasks = (tasksQuery.data ?? []).filter(
+    const tasks = selectedTasks.filter(
       (task) => task.title.toLowerCase().includes(trimmed) || task.category.includes(trimmed),
     ).slice(0, 3);
     const docs = (docsQuery.data ?? []).filter(
@@ -45,7 +39,7 @@ export function SearchBox() {
       (note) => note.body.includes(trimmed) || note.taskTitle.includes(trimmed),
     ).slice(0, 2);
     return { tasks, docs, notes };
-  }, [trimmed, tasksQuery.data, docsQuery.data, notesQuery.data]);
+  }, [trimmed, selectedTasks, docsQuery.data, notesQuery.data]);
 
   const hasResults = !!results && (results.tasks.length > 0 || results.docs.length > 0 || results.notes.length > 0);
 

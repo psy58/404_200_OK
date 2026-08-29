@@ -147,5 +147,13 @@ export function adaptAssistantAnswer(raw: RawAssistantAnswer): AssistantAnswer {
       kind: t.kind,
       audience: t.audience,
     })),
+    workflowName: raw.data.workflow?.name ?? null,
+    currentStage: raw.data.current_stage?.name ?? null,
+    nextStage: raw.data.next_stage?.name ?? null,
+    nextActions: (raw.data.next_actions ?? []).map((a) => ({
+      stepId: a.step_id,
+      title: a.title,
+      description: a.description ?? "",
+    })),
   };
 }

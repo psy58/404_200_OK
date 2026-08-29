@@ -23,6 +23,7 @@ from pathlib import Path
 from fastapi import APIRouter, BackgroundTasks, UploadFile
 
 from .. import settings
+from ..errors import ApiError
 from ..models import frontend as dto
 from ..services import frontend_service, state_store, upload_ingest
 
@@ -182,6 +183,10 @@ def mark_notifications_read(
 
 UPLOAD_DIR = settings.DATA_DIR / "uploads"
 UPLOAD_NOTE = upload_ingest.STATUS_NOTE["received"]
+ALLOWED_UPLOAD_SUFFIXES = {
+    ".pdf", ".hwp", ".hwpx", ".xlsx", ".xls", ".pptx", ".docx",
+    ".html", ".htm", ".txt", ".md", ".csv", ".zip",
+}
 
 
 def _safe_filename(name: str) -> str:
@@ -198,7 +203,23 @@ def _safe_filename(name: str) -> str:
 async def upload_file(file: UploadFile, background: BackgroundTasks) -> dto.UploadRecord:
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     filename = _safe_filename(file.filename or "")
-    content = await file.read()
+    suffix = Path(filename).suffix.lower()
+    if suffix not in ALLOWED_UPLOAD_SUFFIXES:
+        raise ApiError(
+            415,
+            "upload_type_not_allowed",
+            "지원하지 않는 파일 형식입니다. PDF, HWP/HWPX, Office 문서 또는 텍스트 파일을 사용하세요.",
+        )
+
+    content = await file.read(settings.MAX_UPLOAD_BYTES + 1)
+    await file.close()
+    if len(content) > settings.MAX_UPLOAD_BYTES:
+        limit_mb = settings.MAX_UPLOAD_BYTES // (1024 * 1024)
+        raise ApiError(
+            413,
+            "upload_too_large",
+            f"파일은 {limit_mb}MB 이하만 업로드할 수 있습니다.",
+        )
 
     record = state_store.add_upload(
         {

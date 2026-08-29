@@ -154,9 +154,20 @@ export interface AssistantTimelineEntry {
   audience: string | null;
 }
 
+export interface AssistantNextAction {
+  stepId: string | null;
+  title: string;
+  description: string;
+}
+
 export interface AssistantAnswer {
   queryId: string;
   message: string;
   sources: AssistantSource[];
   timeline: AssistantTimelineEntry[];
+  /** 백엔드가 업무를 특정했을 때의 단계 정보. 못 특정하면 비어 있다. */
+  workflowName: string | null;
+  currentStage: string | null;
+  nextStage: string | null;
+  nextActions: AssistantNextAction[];
 }
