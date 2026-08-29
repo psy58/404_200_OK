@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
-import { getTasks } from "@/services/tasksService";
 import { getDocuments } from "@/services/documentsService";
 import { getExperienceNotes } from "@/services/notesService";
 import { useAssignment } from "@/state/AssignmentContext";
+import { useSelectedTasks } from "@/state/useSelectedTasks";
 import { useOverlay } from "@/state/OverlayContext";
 import { qk } from "@/state/queryKeys";
 import { LoadingBlock, ErrorState } from "@/components/ui/States";
@@ -20,21 +20,15 @@ const VISIBILITY_LABEL: Record<string, { label: string; tone: string }> = {
  * 없이는 비활성으로 유지한다 (docs/01 F11, docs/06 §9.9).
  */
 export function HandoverPage() {
-  const { school, activeAssignment, activeAssignmentId } = useAssignment();
+  const { school, selectedAssignments, selectedAssignmentIds } = useAssignment();
   const { open } = useOverlay();
-
-  const tasksQuery = useQuery({
-    queryKey: qk.tasks(activeAssignmentId ?? ""),
-    queryFn: ({ signal }) => getTasks(activeAssignmentId ?? "", signal),
-    enabled: !!activeAssignmentId,
-  });
+  const { tasks, isPending: tasksPending, error: tasksError, refetch: refetchTasks } = useSelectedTasks();
   const docsQuery = useQuery({ queryKey: qk.documents(), queryFn: ({ signal }) => getDocuments(signal) });
   const notesQuery = useQuery({ queryKey: qk.notes(), queryFn: ({ signal }) => getExperienceNotes(signal) });
 
-  if (!activeAssignmentId || tasksQuery.isPending) return <LoadingBlock label="인수인계서 초안을 불러오는 중" />;
-  if (tasksQuery.isError) return <ErrorState description={(tasksQuery.error as Error).message} onRetry={() => tasksQuery.refetch()} />;
+  if (selectedAssignmentIds.length === 0 || tasksPending) return <LoadingBlock label="인수인계서 초안을 불러오는 중" />;
+  if (tasksError) return <ErrorState description={tasksError.message} onRetry={refetchTasks} />;
 
-  const tasks = tasksQuery.data;
   const done = tasks.filter((t) => t.status === "complete");
   const inProgress = tasks.filter((t) => t.status === "in_progress");
   const sharedNotes = (notesQuery.data ?? []).filter((n) => n.visibility !== "private");
@@ -70,7 +64,7 @@ export function HandoverPage() {
       <div className="ho-doc">
         <span className="eyebrow">{school?.name ?? ""}</span>
         <h2 className="t-display" style={{ marginTop: 10 }}>
-          {school?.academicYear ?? ""}학년도 {activeAssignment?.name ?? ""} 업무 인수인계
+          {school?.academicYear ?? ""}학년도 {selectedAssignments.map((assignment) => assignment.name).join(" · ")} 업무 인수인계
         </h2>
         <p className="t-cap" style={{ marginTop: 8 }}>작성 기준일 2026.08.28 · 담당 박새연 · 검토 전 초안</p>
 

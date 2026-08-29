@@ -1,10 +1,8 @@
 import { useEffect, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { Panel } from "@/components/ui/Panel";
-import { getTasks } from "@/services/tasksService";
 import { askAssistant } from "@/services/assistantService";
-import { useAssignment } from "@/state/AssignmentContext";
-import { qk } from "@/state/queryKeys";
+import { useSelectedTasks } from "@/state/useSelectedTasks";
 import { InfoIcon } from "@/lib/icons";
 import { formatFull } from "@/lib/dates";
 import type { AssistantAnswer } from "@/domain/types";
@@ -38,19 +36,16 @@ const SUGGESTIONS = ["지금 내가 해야 할 게 뭐야?", "작년이랑 달�
 const NEW_TASK_SUGGESTIONS = ["지금 내가 해야 할 게 뭐야?", "올린 자료 요약해줘", "준비물이 뭐야?"];
 
 export function AssistantPanel({ taskId, onClose }: { taskId?: string; onClose: () => void }) {
-  const { activeAssignmentId } = useAssignment();
+  const { tasks } = useSelectedTasks();
   const [question, setQuestion] = useState("");
   const [asked, setAsked] = useState("");
   const [elapsed, setElapsed] = useState(0);
 
-  const tasksQuery = useQuery({
-    queryKey: qk.tasks(activeAssignmentId ?? ""),
-    queryFn: ({ signal }) => getTasks(activeAssignmentId ?? "", signal),
-    enabled: !!activeAssignmentId,
-  });
   // 업무 상세에서 열었을 때만 그 업무로 한정한다. 전역 버튼이면 전체에서 찾는다.
-  const task = taskId ? tasksQuery.data?.find((item) => item.id === taskId) : undefined;
-  const isNewTask = !!taskId?.startsWith("cust_");
+  // 선택한 담당 업무 전체에서 찾으므로 어느 담당 업무의 업무든 맥락이 잡힌다.
+  const task = taskId ? tasks.find((item) => item.id === taskId) : undefined;
+  // 새 업무: 직접 추가한 업무(cust_)와 학생맞춤통합지원 시연 업무(hak-). 작년 기록이 없다.
+  const isNewTask = !!taskId && (taskId.startsWith("cust_") || taskId.startsWith("hak-"));
   const actions = isNewTask ? NEW_TASK_ACTIONS : QUICK_ACTIONS;
   const suggestions = isNewTask ? NEW_TASK_SUGGESTIONS : SUGGESTIONS;
 
@@ -172,6 +167,23 @@ export function AssistantPanel({ taskId, onClose }: { taskId?: string; onClose: 
                   {answer.timeline.map((entry, index) => (
                     <p key={index}>
                       {entry.date ?? "날짜 미상"} · [{entry.audience ?? entry.kind}] {entry.title}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {answer.nextActions.length > 0 && (
+              <div className="ai-answer-sections">
+                <div>
+                  <strong>
+                    다음 할 일
+                    {answer.nextStage ? ` · 지금 단계: ${answer.nextStage}` : ""}
+                  </strong>
+                  {answer.nextActions.map((action, index) => (
+                    <p key={action.stepId ?? index}>
+                      {index + 1}. {action.title}
+                      {action.description ? ` — ${action.description}` : ""}
                     </p>
                   ))}
                 </div>

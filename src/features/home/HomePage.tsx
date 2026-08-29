@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { getTasks } from "@/services/tasksService";
 import { getFeed } from "@/services/feedService";
 import { getExperienceNotes } from "@/services/notesService";
 import { getDocuments } from "@/services/documentsService";
 import { useAssignment } from "@/state/AssignmentContext";
+import { useSelectedTasks } from "@/state/useSelectedTasks";
 import { useOverlay } from "@/state/OverlayContext";
 import { qk } from "@/state/queryKeys";
 import { QueryBoundary } from "@/components/ui/QueryBoundary";
@@ -27,27 +27,17 @@ const VISIBILITY_LABEL: Record<string, { label: string; tone: string }> = {
 
 export function HomePage() {
   const [showNewTask, setShowNewTask] = useState(false);
-  const { activeAssignment, selectedAssignmentIds } = useAssignment();
+  const { selectedAssignmentIds } = useAssignment();
   const { open } = useOverlay();
-
-  const tasksQueries = useQueries({
-    queries: selectedAssignmentIds.map((assignmentId) => ({
-      queryKey: qk.tasks(assignmentId),
-      queryFn: ({ signal }: { signal: AbortSignal }) => getTasks(assignmentId, signal),
-    })),
-  });
+  const { tasks, isPending: tasksPending, error: tasksError, refetch: refetchTasks } = useSelectedTasks();
   const feedQuery = useQuery({ queryKey: qk.feed(), queryFn: ({ signal }) => getFeed(signal) });
   const notesQuery = useQuery({ queryKey: qk.notes(), queryFn: ({ signal }) => getExperienceNotes(signal) });
   const docsQuery = useQuery({ queryKey: qk.documents(), queryFn: ({ signal }) => getDocuments(signal) });
 
   if (selectedAssignmentIds.length === 0) return <LoadingBlock label="담당 업무를 불러오는 중" />;
-  if (tasksQueries.some((query) => query.isPending)) return <LoadingBlock label="내 업무를 불러오는 중" />;
-  const failedTasksQuery = tasksQueries.find((query) => query.isError);
-  if (failedTasksQuery) {
-    return <ErrorState description={(failedTasksQuery.error as Error).message} onRetry={() => failedTasksQuery.refetch()} />;
-  }
+  if (tasksPending) return <LoadingBlock label="내 업무를 불러오는 중" />;
+  if (tasksError) return <ErrorState description={tasksError.message} onRetry={refetchTasks} />;
 
-  const tasks = tasksQueries.flatMap((query) => query.data ?? []);
   const selectedTaskIds = new Set(tasks.map((task) => task.id));
   const selectedTaskTitles = new Set(tasks.map((task) => task.title));
   const filteredFeed = (feedQuery.data ?? []).filter((item) => !item.relatedTaskId || selectedTaskIds.has(item.relatedTaskId));
@@ -68,7 +58,7 @@ export function HomePage() {
         <div>
           <h1 className="t-display">내 업무</h1>
           <p className="sub">
-            담당 업무 <b>{activeAssignment?.taskCount ?? tasks.length}개</b> · 10일 내 마감 <b>{dueSoonCount}개</b>
+            담당 업무 <b>{tasks.length}개</b> · 10일 내 마감 <b>{dueSoonCount}개</b>
           </p>
         </div>
         <div style={{ display: "flex", gap: 9 }}>

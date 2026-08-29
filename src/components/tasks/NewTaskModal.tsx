@@ -17,12 +17,13 @@ export function NewTaskModal({ onClose }: { onClose: () => void }) {
   const [memo, setMemo] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  // 지금 보고 있는 담당 업무 아래에 단다 (새로 추가한 담당 포함)
-  const { activeAssignmentId } = useAssignment();
+  // 선택한 담당 업무 중 하나 아래에 단다 (새로 추가한 담당 포함). 여러 개면 고르게 한다.
+  const { selectedAssignments } = useAssignment();
+  const [assignmentId, setAssignmentId] = useState(selectedAssignments[0]?.id ?? "");
 
   const mutation = useMutation({
     mutationFn: () =>
-      createTask({ title, assignmentId: activeAssignmentId ?? undefined, startDate, dueDate, memo }),
+      createTask({ title, assignmentId: assignmentId || undefined, startDate, dueDate, memo }),
     onSuccess: (task) => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
@@ -65,6 +66,16 @@ export function NewTaskModal({ onClose }: { onClose: () => void }) {
       }
     >
       <div style={{ display: "grid", gap: 14 }}>
+        {selectedAssignments.length > 1 && (
+          <label style={field}>
+            <span style={label}>담당 업무</span>
+            <select style={input} value={assignmentId} onChange={(e) => setAssignmentId(e.target.value)}>
+              {selectedAssignments.map((assignment) => (
+                <option key={assignment.id} value={assignment.id}>{assignment.name}</option>
+              ))}
+            </select>
+          </label>
+        )}
         <label style={field}>
           <span style={label}>업무 이름 *</span>
           <input

@@ -3,8 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getDocuments } from "@/services/documentsService";
 import { useOverlay } from "@/state/OverlayContext";
 import { useAssignment } from "@/state/AssignmentContext";
-import { useQueries } from "@tanstack/react-query";
-import { getTasks } from "@/services/tasksService";
+import { useSelectedTasks } from "@/state/useSelectedTasks";
 import { qk } from "@/state/queryKeys";
 import { QueryBoundary } from "@/components/ui/QueryBoundary";
 import { SourceTag } from "@/components/ui/SourceTag";
@@ -33,8 +32,8 @@ export function DocumentsPage() {
   const { open } = useOverlay();
   const { selectedAssignmentIds } = useAssignment();
   const query = useQuery({ queryKey: qk.documents(), queryFn: ({ signal }) => getDocuments(signal) });
-  const taskQueries = useQueries({ queries: selectedAssignmentIds.map((assignmentId) => ({ queryKey: qk.tasks(assignmentId), queryFn: ({ signal }: { signal: AbortSignal }) => getTasks(assignmentId, signal) })) });
-  const taskTitles = useMemo(() => new Set(taskQueries.flatMap((taskQuery) => taskQuery.data ?? []).map((task) => task.title)), [taskQueries]);
+  const { tasks } = useSelectedTasks();
+  const taskTitles = useMemo(() => new Set(tasks.map((task) => task.title)), [tasks]);
 
   const filtered = useMemo(() => {
     const items = (query.data ?? []).filter((document) => taskTitles.has(document.relatedTaskTitle) || (selectedAssignmentIds.includes("sci") && document.relatedTaskTitle === "과학정보 · 공통"));

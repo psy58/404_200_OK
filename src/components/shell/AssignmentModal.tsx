@@ -3,15 +3,26 @@ import { Modal } from "@/components/ui/Modal";
 import { useAssignment } from "@/state/AssignmentContext";
 import { useToast } from "@/state/ToastContext";
 import { useOverlay } from "@/state/OverlayContext";
-import { CheckIcon } from "@/lib/icons";
+import { CheckIcon, CloseIcon } from "@/lib/icons";
 
 /** F01 담당 업무 선택. 서버가 허용한 업무분장 중에서만 고를 수 있다. */
 export function AssignmentModal({ onClose }: { onClose: () => void }) {
-  const { assignments, selectedAssignmentIds, setSelectedAssignmentIds, school } = useAssignment();
+  const { assignments, selectedAssignmentIds, setSelectedAssignmentIds, school, customAssignmentIds, removeCustomAssignment } = useAssignment();
   const [pendingIds, setPendingIds] = useState(selectedAssignmentIds);
   const { toast } = useToast();
   const { open } = useOverlay();
   const initialAssignments = assignments.filter((assignment) => !assignment.note?.includes("신규 업무"));
+
+  const remove = (assignment: { id: string; name: string }) => {
+    const ok = window.confirm(`"${assignment.name}" 담당 업무를 삭제할까요?\n이 담당 업무에 딸린 업무 카드와 문서도 화면에서 사라집니다.`);
+    if (!ok) return;
+    if (!removeCustomAssignment(assignment.id)) {
+      toast("이 담당 업무는 삭제할 수 없습니다.");
+      return;
+    }
+    setPendingIds((current) => current.filter((id) => id !== assignment.id));
+    toast(`"${assignment.name}" 담당 업무를 삭제했습니다`);
+  };
 
   return (
     <Modal
@@ -41,8 +52,8 @@ export function AssignmentModal({ onClose }: { onClose: () => void }) {
     >
       <div className="assignment-grid">
         {initialAssignments.map((assignment) => (
+          <div key={assignment.id} className={customAssignmentIds.includes(assignment.id) ? "assignment-card-wrap is-custom" : "assignment-card-wrap"}>
           <button
-            key={assignment.id}
             className="assignment-card"
             aria-pressed={pendingIds.includes(assignment.id)}
             onClick={() => setPendingIds((current) => {
@@ -62,6 +73,18 @@ export function AssignmentModal({ onClose }: { onClose: () => void }) {
             </span>
             <span>{Number(assignment.activeFrom.slice(5, 7))}월부터 담당</span>
           </button>
+          {customAssignmentIds.includes(assignment.id) && (
+            <button
+              type="button"
+              className="assignment-card-remove"
+              aria-label={`${assignment.name} 담당 업무 삭제`}
+              title="담당 업무 삭제"
+              onClick={() => remove(assignment)}
+            >
+              <CloseIcon />
+            </button>
+          )}
+          </div>
         ))}
         <button
           className="assignment-add-card"

@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { useQueries } from "@tanstack/react-query";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { getTasks } from "@/services/tasksService";
 import { useAssignment } from "@/state/AssignmentContext";
-import { qk } from "@/state/queryKeys";
+import { useSelectedTasks } from "@/state/useSelectedTasks";
 import { formatShort, MONTHS } from "@/lib/dates";
 import type { TaskInstance, TaskStatus } from "@/domain/types";
 import { taskNavigationState, type TaskNavigationState } from "@/lib/taskNavigation";
@@ -23,7 +21,7 @@ function barClass(status: TaskStatus): string {
 }
 
 export function AnnualMapPage() {
-  const { selectedAssignments, selectedAssignmentIds } = useAssignment();
+  const { selectedAssignments } = useAssignment();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -37,15 +35,7 @@ export function AnnualMapPage() {
     else if (restoreState?.restore?.scrollY) window.scrollTo({ top: restoreState.restore.scrollY, behavior: "auto" });
   }, [focusTaskId, restoreState]);
 
-  const taskQueries = useQueries({
-    queries: selectedAssignmentIds.map((assignmentId) => ({
-      queryKey: qk.tasks(assignmentId),
-      queryFn: ({ signal }: { signal: AbortSignal }) => getTasks(assignmentId, signal),
-    })),
-  });
-  const tasks = taskQueries.flatMap((query) => query.data ?? []);
-  const isPending = taskQueries.some((query) => query.isPending);
-  const failedQuery = taskQueries.find((query) => query.isError);
+  const { tasks, isPending, error: tasksError } = useSelectedTasks();
 
   const categories = useMemo(
     () => Array.from(new Set(tasks.map((t) => t.category))),
@@ -99,7 +89,7 @@ export function AnnualMapPage() {
         ))}
       </div>
 
-      {isPending ? <div className="card card-pad">업무 지도를 불러오는 중입니다.</div> : failedQuery ? <div className="card card-pad">업무 지도를 불러오지 못했습니다.</div> : (
+      {isPending ? <div className="card card-pad">업무 지도를 불러오는 중입니다.</div> : tasksError ? <div className="card card-pad">업무 지도를 불러오지 못했습니다.</div> : (
           <section className="card card-pad">
             <div className="map-scroll">
               <div className="map-inner">
