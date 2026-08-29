@@ -1,9 +1,7 @@
 import { Link, NavLink } from "react-router-dom";
-import { useQueries } from "@tanstack/react-query";
 import { useAssignment } from "@/state/AssignmentContext";
+import { useSelectedTasks } from "@/state/useSelectedTasks";
 import { useOverlay } from "@/state/OverlayContext";
-import { getTasks } from "@/services/tasksService";
-import { qk } from "@/state/queryKeys";
 import { daysUntil } from "@/lib/dates";
 import {
   DocsNavIcon,
@@ -17,16 +15,11 @@ import gamWordmark from "@/assets/brand/gam-wordmark-white.png";
 import gamPersimmon from "@/assets/brand/gam-persimmon-green.png";
 
 export function Sidebar({ collapsed, onNavigate, onToggleCollapse }: { collapsed: boolean; onNavigate?: () => void; onToggleCollapse: () => void }) {
-  const { school, selectedAssignments, selectedAssignmentIds } = useAssignment();
+  const { school, selectedAssignments } = useAssignment();
   const { open } = useOverlay();
-  const tasksQueries = useQueries({
-    queries: selectedAssignmentIds.map((assignmentId) => ({
-      queryKey: qk.tasks(assignmentId),
-      queryFn: ({ signal }: { signal: AbortSignal }) => getTasks(assignmentId, signal),
-    })),
-  });
+  const { tasks } = useSelectedTasks();
   const selectedTaskCount = selectedAssignments.reduce((count, assignment) => count + assignment.taskCount, 0);
-  const urgentCount = tasksQueries.flatMap((query) => query.data ?? []).filter((task) => task.status === "in_progress" && daysUntil(task.officialDueDate) <= 10).length;
+  const urgentCount = tasks.filter((task) => task.status === "in_progress" && daysUntil(task.officialDueDate) <= 10).length;
 
   return (
     <aside className="side">

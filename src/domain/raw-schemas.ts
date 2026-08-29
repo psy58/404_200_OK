@@ -156,12 +156,23 @@ export const RawAssistantTimelineSchema = z.object({
   kind: z.string(),
   audience: z.string().nullable(),
 });
+const RawStageRefSchema = z.object({ step_id: z.string(), name: z.string() });
+const RawNextActionSchema = z.object({
+  step_id: z.string().nullable(),
+  title: z.string(),
+  description: z.string().nullable(), // 단계 설명이 없는 워크플로도 있다
+});
 export const RawAssistantAnswerSchema = z.object({
   query_id: z.string(),
   message: z.string(),
   data: z.object({
     documents: z.array(RawAssistantSourceSchema),
     timeline: z.array(RawAssistantTimelineSchema),
+    // 업무를 특정했을 때만 온다 (docs/API.md QueryData). mock 은 없어도 된다.
+    workflow: z.object({ workflow_id: z.string(), name: z.string() }).nullable().optional(),
+    current_stage: RawStageRefSchema.nullable().optional(),
+    next_stage: RawStageRefSchema.nullable().optional(),
+    next_actions: z.array(RawNextActionSchema).optional(),
   }),
 });
 

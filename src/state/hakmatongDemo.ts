@@ -23,6 +23,14 @@ export function readCustomDuties(): Assignment[] {
     return Array.isArray(items) ? items : [];
   } catch { return []; }
 }
+/** 직접 추가한 담당 업무를 지운다. 지운 것이 있으면 true. 서버 담당 업무(sci 등)는 여기 없으므로 false. */
+export function removeCustomDuty(id: string): boolean {
+  const duties = readCustomDuties();
+  const next = duties.filter((duty) => duty.id !== id);
+  if (next.length === duties.length) return false;
+  localStorage.setItem(CUSTOM_DUTIES_KEY, JSON.stringify(next));
+  return true;
+}
 export function createHakmatongDuty(draft: NewDutyDraft): Assignment | null {
   if (normalizeDutyName(draft.name) !== "학생맞춤통합지원" || draft.assignedYear !== 2026 || draft.assignedMonth !== 8) return null;
   const duties = readCustomDuties();

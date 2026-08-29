@@ -402,6 +402,12 @@ table.tbl{width:100%;min-width:920px;border-collapse:collapse}
 .assignment-card:hover{border-color:var(--navy-300);background:var(--navy-050)}
 .assignment-card[aria-pressed="true"]{border:2px solid var(--navy-700);padding:21px 22px;background:var(--navy-050)}
 .assignment-card-title{display:flex;align-items:center;gap:8px}.assignment-card-title strong{font-size:19px;letter-spacing:-.03em}.assignment-card>span:last-child{display:block;margin-top:8px;font-size:13.5px;color:var(--ink-3)}
+.assignment-card-wrap{position:relative;display:grid}
+.assignment-card-wrap>.assignment-card{width:100%}
+.assignment-card-wrap.is-custom>.assignment-card,.assignment-card-wrap.is-custom>.assignment-card[aria-pressed="true"]{padding-right:48px}
+.assignment-card-remove{position:absolute;top:10px;right:10px;width:28px;height:28px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;color:var(--ink-3);background:transparent;transition:background .14s,color .14s}
+.assignment-card-remove:hover,.assignment-card-remove:focus-visible{background:#FDECEC;color:#B42318}
+.assignment-card-remove svg{width:14px;height:14px}
 .assignment-check{width:18px;height:18px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:var(--navy-700);color:#fff}.assignment-check svg{width:12px;height:12px;stroke-width:2.5}
 .assignment-add-card{display:flex;align-items:center;gap:12px;border:1.5px dashed #C7D2DF;background:transparent;color:var(--ink-2)}
 .assignment-add-card:hover{border-color:var(--navy-300);background:var(--navy-050);color:var(--navy-700)}
